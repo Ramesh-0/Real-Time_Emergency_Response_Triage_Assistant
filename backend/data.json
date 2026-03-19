@@ -1,0 +1,114 @@
+[
+  {
+    "id": "C-001",
+    "type": "cardiology",
+    "title": "Acute chest pain with shortness of breath",
+    "text": "Patient reports severe chest pressure radiating to left arm and sweating.",
+    "keywords": ["chest", "pain", "sweating", "arm", "breath"],
+    "date": "2026-03-17"
+  },
+  {
+    "id": "C-002",
+    "type": "cardiology",
+    "title": "ECG ST-segment change",
+    "text": "ECG indicates ST elevation and possible myocardial ischemia.",
+    "keywords": ["ecg", "st", "ischemia", "cardiac"],
+    "date": "2026-03-18"
+  },
+  {
+    "id": "C-003",
+    "type": "cardiology",
+    "title": "Mild palpitations episode",
+    "text": "Intermittent palpitations without chest pain or syncope.",
+    "keywords": ["palpitations", "heartbeat", "cardiology"],
+    "date": "2026-03-10"
+  },
+  {
+    "id": "C-004",
+    "type": "cardiology",
+    "title": "Hypertension follow-up",
+    "text": "Routine blood pressure review, no emergency symptoms.",
+    "keywords": ["hypertension", "blood", "pressure", "follow-up"],
+    "date": "2026-03-08"
+  },
+  {
+    "id": "D-001",
+    "type": "dental",
+    "title": "Tooth abscess with swelling",
+    "text": "Localized gum swelling and severe molar pain with pus pocket.",
+    "keywords": ["tooth", "abscess", "gum", "molar", "swelling"],
+    "date": "2026-03-16"
+  },
+  {
+    "id": "D-002",
+    "type": "dental",
+    "title": "Routine scaling appointment",
+    "text": "Patient scheduled for non-urgent dental cleaning.",
+    "keywords": ["scaling", "cleaning", "routine", "dental"],
+    "date": "2026-03-12"
+  },
+  {
+    "id": "D-003",
+    "type": "dental",
+    "title": "Wisdom tooth impaction",
+    "text": "Jaw pain and chewing discomfort associated with impacted wisdom tooth.",
+    "keywords": ["wisdom", "tooth", "jaw", "chewing", "pain"],
+    "date": "2026-03-13"
+  },
+  {
+    "id": "D-004",
+    "type": "dental",
+    "title": "Orthodontic retainer adjustment",
+    "text": "Minor discomfort due to retainer fit; no infection signs.",
+    "keywords": ["retainer", "orthodontic", "adjustment"],
+    "date": "2026-03-07"
+  },
+  {
+    "id": "G-001",
+    "type": "general",
+    "title": "Fever with body ache",
+    "text": "Persistent fever above 101 F with fatigue and body aches.",
+    "keywords": ["fever", "body", "ache", "fatigue"],
+    "date": "2026-03-19"
+  },
+  {
+    "id": "G-002",
+    "type": "general",
+    "title": "Seasonal cough and sore throat",
+    "text": "Dry cough and sore throat for three days, no breathing distress.",
+    "keywords": ["cough", "throat", "sore", "general"],
+    "date": "2026-03-15"
+  },
+  {
+    "id": "G-003",
+    "type": "general",
+    "title": "Mild headache from dehydration",
+    "text": "Headache improves with hydration and rest.",
+    "keywords": ["headache", "dehydration", "rest"],
+    "date": "2026-03-11"
+  },
+  {
+    "id": "G-004",
+    "type": "general",
+    "title": "Post-vaccination low-grade fever",
+    "text": "Mild fever after vaccination, stable vitals and no red flags.",
+    "keywords": ["fever", "vaccination", "vitals"],
+    "date": "2026-03-14"
+  },
+  {
+    "id": "X-001",
+    "type": "general",
+    "title": "Skin rash from detergent",
+    "text": "Localized rash after new detergent exposure, no airway compromise.",
+    "keywords": ["rash", "skin", "allergy"],
+    "date": "2026-03-09"
+  },
+  {
+    "id": "X-002",
+    "type": "general",
+    "title": "Travel medication refill request",
+    "text": "Administrative refill request before travel; no active symptoms.",
+    "keywords": ["refill", "travel", "administrative"],
+    "date": "2026-03-06"
+  }
+]
