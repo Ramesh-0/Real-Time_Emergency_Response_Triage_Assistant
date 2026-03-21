@@ -5,7 +5,10 @@
     "title": "Acute chest pain with shortness of breath",
     "text": "Patient reports severe chest pressure radiating to left arm and sweating.",
     "keywords": ["chest", "pain", "sweating", "arm", "breath"],
-    "date": "2026-03-17"
+    "date": "2026-03-17",
+    "diagnosis": "Possible acute coronary syndrome",
+    "action": "Immediate emergency escalation, ECG within 10 minutes, and cardiac markers",
+    "severity": "HIGH"
   },
   {
     "id": "C-002",
@@ -13,7 +16,10 @@
     "title": "ECG ST-segment change",
     "text": "ECG indicates ST elevation and possible myocardial ischemia.",
     "keywords": ["ecg", "st", "ischemia", "cardiac"],
-    "date": "2026-03-18"
+    "date": "2026-03-18",
+    "diagnosis": "ST-elevation myocardial infarction suspicion",
+    "action": "Activate cardiac emergency pathway and urgent cardiology intervention",
+    "severity": "HIGH"
   },
   {
     "id": "C-003",
@@ -21,7 +27,10 @@
     "title": "Mild palpitations episode",
     "text": "Intermittent palpitations without chest pain or syncope.",
     "keywords": ["palpitations", "heartbeat", "cardiology"],
-    "date": "2026-03-10"
+    "date": "2026-03-10",
+    "diagnosis": "Likely benign palpitations",
+    "action": "Outpatient rhythm evaluation and monitor for red-flag symptoms",
+    "severity": "MEDIUM"
   },
   {
     "id": "C-004",
@@ -29,7 +38,10 @@
     "title": "Hypertension follow-up",
     "text": "Routine blood pressure review, no emergency symptoms.",
     "keywords": ["hypertension", "blood", "pressure", "follow-up"],
-    "date": "2026-03-08"
+    "date": "2026-03-08",
+    "diagnosis": "Stable hypertension follow-up",
+    "action": "Continue routine management and medication adherence counseling",
+    "severity": "LOW"
   },
   {
     "id": "D-001",
@@ -37,7 +49,10 @@
     "title": "Tooth abscess with swelling",
     "text": "Localized gum swelling and severe molar pain with pus pocket.",
     "keywords": ["tooth", "abscess", "gum", "molar", "swelling"],
-    "date": "2026-03-16"
+    "date": "2026-03-16",
+    "diagnosis": "Acute dental abscess",
+    "action": "Urgent dental drainage review and antibiotic/pain management",
+    "severity": "MEDIUM"
   },
   {
     "id": "D-002",
@@ -45,7 +60,10 @@
     "title": "Routine scaling appointment",
     "text": "Patient scheduled for non-urgent dental cleaning.",
     "keywords": ["scaling", "cleaning", "routine", "dental"],
-    "date": "2026-03-12"
+    "date": "2026-03-12",
+    "diagnosis": "Routine preventive dental care",
+    "action": "Proceed with scheduled cleaning and oral hygiene counseling",
+    "severity": "LOW"
   },
   {
     "id": "D-003",
@@ -53,7 +71,10 @@
     "title": "Wisdom tooth impaction",
     "text": "Jaw pain and chewing discomfort associated with impacted wisdom tooth.",
     "keywords": ["wisdom", "tooth", "jaw", "chewing", "pain"],
-    "date": "2026-03-13"
+    "date": "2026-03-13",
+    "diagnosis": "Impacted wisdom tooth pain",
+    "action": "Dental imaging and extraction planning with interim analgesia",
+    "severity": "LOW"
   },
   {
     "id": "D-004",
@@ -61,7 +82,10 @@
     "title": "Orthodontic retainer adjustment",
     "text": "Minor discomfort due to retainer fit; no infection signs.",
     "keywords": ["retainer", "orthodontic", "adjustment"],
-    "date": "2026-03-07"
+    "date": "2026-03-07",
+    "diagnosis": "Orthodontic appliance discomfort",
+    "action": "Non-urgent orthodontic adjustment and fit correction",
+    "severity": "LOW"
   },
   {
     "id": "G-001",
@@ -69,7 +93,10 @@
     "title": "Fever with body ache",
     "text": "Persistent fever above 101 F with fatigue and body aches.",
     "keywords": ["fever", "body", "ache", "fatigue"],
-    "date": "2026-03-19"
+    "date": "2026-03-19",
+    "diagnosis": "Acute febrile illness",
+    "action": "General physician review, hydration, and infection-focused workup",
+    "severity": "MEDIUM"
   },
   {
     "id": "G-002",
@@ -77,7 +104,10 @@
     "title": "Seasonal cough and sore throat",
     "text": "Dry cough and sore throat for three days, no breathing distress.",
     "keywords": ["cough", "throat", "sore", "general"],
-    "date": "2026-03-15"
+    "date": "2026-03-15",
+    "diagnosis": "Likely upper respiratory tract infection",
+    "action": "Symptomatic treatment and observe for respiratory red flags",
+    "severity": "MEDIUM"
   },
   {
     "id": "G-003",
@@ -85,7 +115,10 @@
     "title": "Mild headache from dehydration",
     "text": "Headache improves with hydration and rest.",
     "keywords": ["headache", "dehydration", "rest"],
-    "date": "2026-03-11"
+    "date": "2026-03-11",
+    "diagnosis": "Dehydration-associated headache",
+    "action": "Oral rehydration, rest, and reassess if symptoms persist",
+    "severity": "LOW"
   },
   {
     "id": "G-004",
@@ -93,7 +126,10 @@
     "title": "Post-vaccination low-grade fever",
     "text": "Mild fever after vaccination, stable vitals and no red flags.",
     "keywords": ["fever", "vaccination", "vitals"],
-    "date": "2026-03-14"
+    "date": "2026-03-14",
+    "diagnosis": "Post-vaccination expected reaction",
+    "action": "Supportive care with antipyretics and return precautions",
+    "severity": "LOW"
   },
   {
     "id": "X-001",
@@ -101,7 +137,10 @@
     "title": "Skin rash from detergent",
     "text": "Localized rash after new detergent exposure, no airway compromise.",
     "keywords": ["rash", "skin", "allergy"],
-    "date": "2026-03-09"
+    "date": "2026-03-09",
+    "diagnosis": "Contact dermatitis",
+    "action": "Avoid trigger, start topical care, and monitor for systemic allergy signs",
+    "severity": "LOW"
   },
   {
     "id": "X-002",
@@ -109,6 +148,9 @@
     "title": "Travel medication refill request",
     "text": "Administrative refill request before travel; no active symptoms.",
     "keywords": ["refill", "travel", "administrative"],
-    "date": "2026-03-06"
+    "date": "2026-03-06",
+    "diagnosis": "Administrative medication refill",
+    "action": "Process refill per protocol and provide adherence/travel guidance",
+    "severity": "LOW"
   }
 ]
