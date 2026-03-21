@@ -2,14 +2,99 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 const axios = require("axios");
 const dataset = require("./data.json");
 
-const app = express();
-const PORT = process.env.PORT || 5000;
+function parsePositiveInteger(value, fallback) {
+	const parsed = Number.parseInt(value, 10);
+	return Number.isNaN(parsed) || parsed <= 0 ? fallback : parsed;
+}
 
-app.use(cors());
-app.use(express.json());
+const app = express();
+const PORT = parsePositiveInteger(process.env.PORT, 5000);
+const DEFAULT_LIMIT = parsePositiveInteger(process.env.DEFAULT_LIMIT, 10);
+const MAX_LIMIT = parsePositiveInteger(process.env.MAX_LIMIT, 50);
+const QUERY_MAX_LENGTH = parsePositiveInteger(process.env.QUERY_MAX_LENGTH, 300);
+const RATE_LIMIT_WINDOW_MS = parsePositiveInteger(process.env.RATE_LIMIT_WINDOW_MS, 60000);
+const RATE_LIMIT_MAX = parsePositiveInteger(process.env.RATE_LIMIT_MAX, 120);
+const SCALEDOWN_TIMEOUT_MS = parsePositiveInteger(process.env.SCALEDOWN_TIMEOUT_MS, 8000);
+const API_JSON_LIMIT = process.env.API_JSON_LIMIT || "50kb";
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || "")
+	.split(",")
+	.map((origin) => origin.trim())
+	.filter(Boolean);
+const SAFE_DEFAULT_LIMIT = Math.min(DEFAULT_LIMIT, MAX_LIMIT);
+
+class HttpError extends Error {
+	constructor(statusCode, message) {
+		super(message);
+		this.name = "HttpError";
+		this.statusCode = statusCode;
+	}
+}
+
+function log(level, message, metadata = {}) {
+	const entry = {
+		timestamp: new Date().toISOString(),
+		level,
+		message,
+		...metadata
+	};
+
+	const serialized = JSON.stringify(entry);
+
+	if (level === "error") {
+		console.error(serialized);
+		return;
+	}
+
+	if (level === "warn") {
+		console.warn(serialized);
+		return;
+	}
+
+	console.log(serialized);
+}
+
+app.disable("x-powered-by");
+app.set("trust proxy", 1);
+
+app.use(helmet());
+
+app.use(
+	cors({
+		origin: (origin, callback) => {
+			if (ALLOWED_ORIGINS.length === 0) {
+				return callback(null, true);
+			}
+
+			if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+				return callback(null, true);
+			}
+
+			return callback(new HttpError(403, "Origin is not allowed by CORS policy"));
+		},
+		methods: ["GET", "POST", "OPTIONS"],
+		allowedHeaders: ["Content-Type", "Authorization", "x-api-key"],
+		maxAge: 600
+	})
+);
+
+app.use(
+	rateLimit({
+		windowMs: RATE_LIMIT_WINDOW_MS,
+		max: RATE_LIMIT_MAX,
+		standardHeaders: true,
+		legacyHeaders: false,
+		message: {
+			error: "Too many requests. Please retry later."
+		}
+	})
+);
+
+app.use(express.json({ limit: API_JSON_LIMIT }));
 
 const KEYWORD_TO_TYPE = {
 	chest: "cardiology",
@@ -23,6 +108,44 @@ const KEYWORD_TO_TYPE = {
 	headache: "general"
 };
 
+function parseLimit(limitValue) {
+	const parsed = Number.parseInt(limitValue, 10);
+
+	if (Number.isNaN(parsed)) {
+		return SAFE_DEFAULT_LIMIT;
+	}
+
+	return Math.min(Math.max(parsed, 1), MAX_LIMIT);
+}
+
+function toEpoch(dateValue) {
+	const parsed = Date.parse(dateValue);
+	return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function validateRetrievePayload(payload) {
+	const { query, limit } = payload || {};
+
+	if (typeof query !== "string") {
+		throw new HttpError(400, "query is required and must be a string");
+	}
+
+	const normalizedQuery = query.trim();
+
+	if (!normalizedQuery) {
+		throw new HttpError(400, "query cannot be empty");
+	}
+
+	if (normalizedQuery.length > QUERY_MAX_LENGTH) {
+		throw new HttpError(400, `query exceeds max length of ${QUERY_MAX_LENGTH}`);
+	}
+
+	return {
+		query: normalizedQuery,
+		limit: parseLimit(limit)
+	};
+}
+
 function retrieveDocuments(query) {
 	const queryTokens = query.toLowerCase().match(/[a-z0-9]+/g) || [];
 	const tokenSet = new Set(queryTokens);
@@ -30,18 +153,25 @@ function retrieveDocuments(query) {
 	const scoreDocs = (docs) => {
 		return docs
 			.map((doc) => {
-				const keywordScore = doc.keywords.reduce((score, keyword) => {
+				const keywords = Array.isArray(doc.keywords) ? doc.keywords : [];
+				const keywordScore = keywords.reduce((score, keyword) => {
 					const normalizedKeyword = String(keyword).toLowerCase();
 					return tokenSet.has(normalizedKeyword) ? score + 2 : score;
 				}, 0);
 
-				const typeBonus = tokenSet.has(doc.type.toLowerCase()) ? 1 : 0;
+				const typeBonus = typeof doc.type === "string" && tokenSet.has(doc.type.toLowerCase()) ? 1 : 0;
 				const totalScore = keywordScore + typeBonus;
 
 				return { doc, totalScore };
 			})
 			.filter((item) => item.totalScore > 0)
-			.sort((a, b) => b.totalScore - a.totalScore)
+			.sort((a, b) => {
+				if (b.totalScore !== a.totalScore) {
+					return b.totalScore - a.totalScore;
+				}
+
+				return toEpoch(b.doc.date) - toEpoch(a.doc.date);
+			})
 			.map((item) => item.doc);
 	};
 
@@ -71,16 +201,12 @@ function retrieveDocuments(query) {
 }
 
 async function pruneWithScaledown(query, retrievedDocs) {
+	const fallbackDocs = retrievedDocs.slice(0, SAFE_DEFAULT_LIMIT);
 	const fallback = {
-		prunedDocs: retrievedDocs.slice(0, 5),
+		prunedDocs: fallbackDocs,
 		pruneMeta: {
 			usedScaledown: false,
-			reason: "SCALEDOWN_API_URL not configured",
-			debug: {
-				auth_mode: "none",
-				payload_type: "none",
-				payload_keys: []
-			}
+			reason: "scaledown_not_configured"
 		}
 	};
 
@@ -118,35 +244,31 @@ async function pruneWithScaledown(query, retrievedDocs) {
 					"Content-Type": "application/json",
 					...variant.headers
 				},
-				timeout: 8000
+				timeout: SCALEDOWN_TIMEOUT_MS
 			});
 
-			const payload = response.data || {};
-			const payloadType = Array.isArray(payload) ? "array" : typeof payload;
-			const payloadKeys = payload && typeof payload === "object" && !Array.isArray(payload)
-				? Object.keys(payload)
-				: [];
-			const debugInfo = {
-				auth_mode: variant.mode,
-				payload_type: payloadType,
-				payload_keys: payloadKeys
-			};
+			const payload = response.data && typeof response.data === "object" ? response.data : {};
 
-			const byIds = Array.isArray(payload.pruned_ids) ? payload.pruned_ids : null;
+			const byIds = Array.isArray(payload.pruned_ids)
+				? payload.pruned_ids
+				: Array.isArray(payload.ids)
+					? payload.ids
+					: null;
 			const directDocs = Array.isArray(payload.pruned_docs)
 				? payload.pruned_docs
 				: Array.isArray(payload.documents)
 					? payload.documents
+					: Array.isArray(payload.data)
+						? payload.data
 					: null;
 
 			if (byIds && byIds.length > 0) {
 				const selected = retrievedDocs.filter((doc) => byIds.includes(doc.id));
 				return {
-					prunedDocs: selected.length > 0 ? selected : retrievedDocs.slice(0, 5),
+					prunedDocs: selected.length > 0 ? selected : fallbackDocs,
 					pruneMeta: {
 						usedScaledown: true,
-						reason: `Pruned via pruned_ids (${variant.mode})`,
-						debug: debugInfo
+						reason: `scaledown_pruned_ids_${variant.mode}`
 					}
 				};
 			}
@@ -156,25 +278,16 @@ async function pruneWithScaledown(query, retrievedDocs) {
 					prunedDocs: directDocs,
 					pruneMeta: {
 						usedScaledown: true,
-						reason: `Pruned via document payload (${variant.mode})`,
-						debug: debugInfo
+						reason: `scaledown_pruned_docs_${variant.mode}`
 					}
 				};
 			}
 
 			return {
-				prunedDocs: retrievedDocs.slice(0, 5),
+				prunedDocs: fallbackDocs,
 				pruneMeta: {
 					usedScaledown: true,
-					reason: `Scaledown returned empty payload (${variant.mode})`,
-					debug: {
-						...debugInfo,
-						candidate_counts: {
-							pruned_ids: Array.isArray(payload.pruned_ids) ? payload.pruned_ids.length : 0,
-							pruned_docs: Array.isArray(payload.pruned_docs) ? payload.pruned_docs.length : 0,
-							documents: Array.isArray(payload.documents) ? payload.documents.length : 0
-						}
-					}
+					reason: `scaledown_empty_payload_${variant.mode}`
 				}
 			};
 		} catch (error) {
@@ -183,31 +296,18 @@ async function pruneWithScaledown(query, retrievedDocs) {
 	}
 
 	const statusCode = lastError?.response?.status;
+	log("warn", "Scaledown pruning unavailable", {
+		statusCode: statusCode || null,
+		errorCode: lastError?.code || null
+	});
+
 	return {
-		prunedDocs: retrievedDocs.slice(0, 5),
+		prunedDocs: fallbackDocs,
 		pruneMeta: {
 			usedScaledown: false,
-			reason: statusCode
-				? `Scaledown error (${statusCode}): ${lastError.message}`
-				: `Scaledown error: ${lastError?.message || "Unknown error"}`,
-			debug: {
-				auth_mode: "all-tried",
-				payload_type: "unknown",
-				payload_keys: [],
-				http_status: statusCode || null
-			}
+			reason: "scaledown_unavailable"
 		}
 	};
-}
-
-function parseLimit(limitValue, defaultLimit = 10, maxLimit = 50) {
-	const parsed = Number.parseInt(limitValue, 10);
-
-	if (Number.isNaN(parsed)) {
-		return defaultLimit;
-	}
-
-	return Math.min(Math.max(parsed, 1), maxLimit);
 }
 
 function toClientDoc(doc) {
@@ -220,8 +320,35 @@ function toClientDoc(doc) {
 	};
 }
 
+function asyncHandler(handler) {
+	return (req, res, next) => {
+		Promise.resolve(handler(req, res, next)).catch(next);
+	};
+}
+
+async function handleRetrieveRequest(req, res) {
+	const { query, limit } = validateRetrievePayload(req.body);
+	const retrievedDocs = retrieveDocuments(query);
+	const limitedRetrievedDocs = retrievedDocs.slice(0, limit);
+	const { prunedDocs, pruneMeta } = await pruneWithScaledown(query, limitedRetrievedDocs);
+	const limitedPrunedDocs = prunedDocs.slice(0, limit);
+
+	return res.json({
+		query,
+		retrieved_count: retrievedDocs.length,
+		returned_retrieved_count: limitedRetrievedDocs.length,
+		pruned_count: limitedPrunedDocs.length,
+		prune_meta: pruneMeta,
+		retrieved_docs: limitedRetrievedDocs.map(toClientDoc),
+		pruned_context: limitedPrunedDocs.map(toClientDoc)
+	});
+}
+
 app.get("/health", (_req, res) => {
-	res.json({ status: "ok" });
+	res.json({
+		status: "ok",
+		uptime_seconds: Math.floor(process.uptime())
+	});
 });
 
 app.get("/", (_req, res) => {
@@ -236,59 +363,54 @@ app.get("/.well-known/appspecific/com.chrome.devtools.json", (_req, res) => {
 	res.json({});
 });
 
-app.post("/retrieve", async (req, res) => {
-	const { query, limit } = req.body || {};
+app.post("/retrieve", asyncHandler(handleRetrieveRequest));
+app.post("/triage", asyncHandler(handleRetrieveRequest));
 
-	if (!query || typeof query !== "string") {
-		return res.status(400).json({
-			error: "query is required and must be a string"
+app.use((_req, res) => {
+	res.status(404).json({ error: "Route not found" });
+});
+
+app.use((error, _req, res, _next) => {
+	const statusCode = Number.isInteger(error.statusCode) ? error.statusCode : 500;
+
+	if (statusCode >= 500) {
+		log("error", "Unhandled server error", {
+			message: error.message
 		});
 	}
 
-	const resultLimit = parseLimit(limit);
-	const retrievedDocs = retrieveDocuments(query);
-	const limitedRetrievedDocs = retrievedDocs.slice(0, resultLimit);
-	const { prunedDocs, pruneMeta } = await pruneWithScaledown(query, limitedRetrievedDocs);
-	const limitedPrunedDocs = prunedDocs.slice(0, resultLimit);
-
-	return res.json({
-		query,
-		retrieved_count: retrievedDocs.length,
-		returned_retrieved_count: limitedRetrievedDocs.length,
-		pruned_count: limitedPrunedDocs.length,
-		prune_meta: pruneMeta,
-		retrieved_docs: limitedRetrievedDocs.map(toClientDoc),
-		pruned_context: limitedPrunedDocs.map(toClientDoc)
+	res.status(statusCode).json({
+		error: statusCode === 500 ? "Internal server error" : error.message
 	});
 });
 
-app.post("/triage", async (req, res) => {
-	const { query, limit } = req.body || {};
-
-	if (!query || typeof query !== "string") {
-		return res.status(400).json({
-			error: "query is required and must be a string"
-		});
-	}
-
-	const resultLimit = parseLimit(limit);
-	const retrievedDocs = retrieveDocuments(query);
-	const limitedRetrievedDocs = retrievedDocs.slice(0, resultLimit);
-	const { prunedDocs, pruneMeta } = await pruneWithScaledown(query, limitedRetrievedDocs);
-	const limitedPrunedDocs = prunedDocs.slice(0, resultLimit);
-	const responsePayload = {
-		query,
-		retrieved_count: retrievedDocs.length,
-		returned_retrieved_count: limitedRetrievedDocs.length,
-		pruned_count: limitedPrunedDocs.length,
-		prune_meta: pruneMeta,
-		retrieved_docs: limitedRetrievedDocs.map(toClientDoc),
-		pruned_context: limitedPrunedDocs.map(toClientDoc)
-	};
-
-	return res.json(responsePayload);
+const server = app.listen(PORT, () => {
+	log("info", "Triage backend running", {
+		port: PORT,
+		node_env: process.env.NODE_ENV || "development"
+	});
 });
 
-app.listen(PORT, () => {
-	console.log(`Triage backend running on http://localhost:${PORT}`);
-});
+function shutdown(signal) {
+	log("info", "Shutdown signal received", { signal });
+
+	server.close((error) => {
+		if (error) {
+			log("error", "Error while shutting down server", {
+				message: error.message
+			});
+			process.exit(1);
+			return;
+		}
+
+		process.exit(0);
+	});
+
+	setTimeout(() => {
+		log("error", "Forced shutdown due to timeout");
+		process.exit(1);
+	}, 10000).unref();
+}
+
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
