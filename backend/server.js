@@ -134,6 +134,100 @@ function toEpoch(dateValue) {
 	return Number.isNaN(parsed) ? 0 : parsed;
 }
 
+function tokenize(text) {
+	if (typeof text !== "string") {
+		return [];
+	}
+
+	return text.toLowerCase().match(/[a-z0-9]+/g) || [];
+}
+
+function createDocIdentity(doc) {
+	if (!doc || typeof doc !== "object") {
+		return "__invalid_doc__";
+	}
+
+	if (doc.id) {
+		return `id:${doc.id}`;
+	}
+
+	return `fallback:${doc.type || "unknown"}:${doc.title || ""}:${doc.date || ""}`;
+}
+
+function dedupeDocs(docs) {
+	const seen = new Set();
+
+	return docs.filter((doc) => {
+		const identity = createDocIdentity(doc);
+
+		if (seen.has(identity)) {
+			return false;
+		}
+
+		seen.add(identity);
+		return true;
+	});
+}
+
+function computeRelevanceScore(queryTokens, doc) {
+	if (!doc || typeof doc !== "object") {
+		return 0;
+	}
+
+	const tokenSet = new Set(queryTokens);
+	const keywords = Array.isArray(doc.keywords) ? doc.keywords : [];
+	const keywordHits = keywords.reduce((score, keyword) => {
+		return tokenSet.has(String(keyword).toLowerCase()) ? score + 3 : score;
+	}, 0);
+
+	const textBody = `${doc.title || ""} ${doc.text || doc.content || ""}`.toLowerCase();
+	const textHits = queryTokens.reduce((score, token) => {
+		return token.length > 2 && textBody.includes(token) ? score + 1 : score;
+	}, 0);
+
+	const typeHit = typeof doc.type === "string" && tokenSet.has(doc.type.toLowerCase()) ? 1 : 0;
+
+	return keywordHits + textHits + typeHit;
+}
+
+function rankDocsByRelevance(query, docs) {
+	const queryTokens = tokenize(query);
+	const uniqueDocs = dedupeDocs(docs);
+
+	return uniqueDocs
+		.map((doc, index) => {
+			return {
+				doc,
+				index,
+				relevanceScore: computeRelevanceScore(queryTokens, doc)
+			};
+		})
+		.sort((a, b) => {
+			if (b.relevanceScore !== a.relevanceScore) {
+				return b.relevanceScore - a.relevanceScore;
+			}
+
+			const dateOrder = toEpoch(b.doc.date) - toEpoch(a.doc.date);
+			if (dateOrder !== 0) {
+				return dateOrder;
+			}
+
+			return a.index - b.index;
+		})
+		.map((item) => item.doc);
+}
+
+function calculateAverageRelevance(query, docs) {
+	if (!Array.isArray(docs) || docs.length === 0) {
+		return 0;
+	}
+
+	const queryTokens = tokenize(query);
+	const total = docs.reduce((sum, doc) => sum + computeRelevanceScore(queryTokens, doc), 0);
+
+	return Number((total / docs.length).toFixed(2));
+}
+
 function validateRetrievePayload(payload) {
 	const { query, limit } = payload || {};
 
@@ -158,7 +252,7 @@ function validateRetrievePayload(payload) {
 }
 
 function retrieveDocuments(query) {
-	const queryTokens = query.toLowerCase().match(/[a-z0-9]+/g) || [];
+	const queryTokens = tokenize(query);
 	const tokenSet = new Set(queryTokens);
 
 	const scoreDocs = (docs) => {
@@ -186,12 +280,10 @@ function retrieveDocuments(query) {
 			.map((item) => item.doc);
 	};
 
-	const inferredTypeEntry = Object.entries(KEYWORD_TO_TYPE).find(([keyword]) => {
-		return tokenSet.has(keyword);
-	});
+	const inferredTypes = [...new Set(queryTokens.map((token) => KEYWORD_TO_TYPE[token]).filter(Boolean))];
 
-	if (inferredTypeEntry) {
-		const inferredType = inferredTypeEntry[1];
+	if (inferredTypes.length === 1) {
+		const inferredType = inferredTypes[0];
 		const typedDocs = dataset.filter((doc) => doc.type === inferredType);
 		const typedScored = scoreDocs(typedDocs);
 
@@ -208,10 +300,50 @@ function retrieveDocuments(query) {
 		return scored;
 	}
 
-	return dataset.slice(0, 5);
+	return dataset.slice(0, SAFE_DEFAULT_LIMIT);
 }
 
-function intelligentContextPrune(retrievedDocs, limit) {
+function isNoisyQuery(query, candidateCount) {
+	const queryTokens = tokenize(query);
+	const uniqueTokenCount = new Set(queryTokens).size;
+	const inferredTypes = new Set(queryTokens.map((token) => KEYWORD_TO_TYPE[token]).filter(Boolean));
+
+	if (candidateCount >= 8) {
+		return true;
+	}
+
+	if (inferredTypes.size > 1) {
+		return true;
+	}
+
+	return uniqueTokenCount >= 5;
+}
+
+function computePruneTargetCount(query, returnedRetrievedCount, candidateCount) {
+	if (candidateCount <= 0 || returnedRetrievedCount <= 0) {
+		return 0;
+	}
+
+	const maxComparableCount = Math.min(returnedRetrievedCount, candidateCount);
+
+	if (!isNoisyQuery(query, candidateCount)) {
+		return maxComparableCount;
+	}
+
+	if (maxComparableCount <= 2) {
+		return maxComparableCount;
+	}
+
+	const ratioTarget = Math.max(2, Math.ceil(maxComparableCount * 0.6));
+
+	return Math.max(1, Math.min(ratioTarget, maxComparableCount - 1));
+}
+
+function intelligentContextPrune(query, retrievedDocs, targetCount) {
+	if (!Array.isArray(retrievedDocs) || retrievedDocs.length === 0 || targetCount <= 0) {
+		return [];
+	}
+
 	const now = Date.now();
 	const maxAgeMs = MAX_DOC_AGE_DAYS * ONE_DAY_MS;
 
@@ -229,9 +361,10 @@ function intelligentContextPrune(retrievedDocs, limit) {
 	});
 
 	const candidatePool = recentDocs.length > 0 ? recentDocs : retrievedDocs;
-	const maxContextDocs = Math.min(limit, LOCAL_PRUNE_TOP_K);
+	const ranked = rankDocsByRelevance(query, candidatePool);
+	const maxContextDocs = Math.min(targetCount, LOCAL_PRUNE_TOP_K, ranked.length);
 
-	return candidatePool.slice(0, maxContextDocs);
+	return ranked.slice(0, maxContextDocs);
 }
 
 function buildScaledownContext(documents) {
@@ -265,12 +398,16 @@ function extractDocIdsFromCompressedText(compressedText) {
 	return [...new Set(ids)];
 }
 
-async function pruneWithScaledown(query, retrievedDocs) {
-	const fallbackDocs = retrievedDocs.slice(0, SAFE_DEFAULT_LIMIT);
+async function pruneWithScaledown(query, candidateDocs, targetCount) {
+	const normalizedTargetCount = Math.max(1, Math.min(targetCount, candidateDocs.length || 0));
+	const fallbackDocs = intelligentContextPrune(query, candidateDocs, normalizedTargetCount);
 	const fallback = {
 		prunedDocs: fallbackDocs,
 		pruneMeta: {
 			usedScaledown: false,
+			attemptedScaledown: false,
+			usedLocalFallback: true,
+			localFallbackCount: fallbackDocs.length,
 			reason: "scaledown_not_configured"
 		}
 	};
@@ -282,17 +419,20 @@ async function pruneWithScaledown(query, retrievedDocs) {
 		return fallback;
 	}
 
-	if (retrievedDocs.length < SCALEDOWN_MIN_CANDIDATES) {
+	if (candidateDocs.length < SCALEDOWN_MIN_CANDIDATES) {
 		return {
 			prunedDocs: fallbackDocs,
 			pruneMeta: {
 				usedScaledown: false,
+				attemptedScaledown: false,
+				usedLocalFallback: true,
+				localFallbackCount: fallbackDocs.length,
 				reason: "local_prune_sufficient_context"
 			}
 		};
 	}
 
-	const documentsPayload = retrievedDocs.map((doc) => ({
+	const documentsPayload = candidateDocs.map((doc) => ({
 		id: doc.id,
 		type: doc.type,
 		date: doc.date,
@@ -302,8 +442,10 @@ async function pruneWithScaledown(query, retrievedDocs) {
 
 	const requestBody = {
 		prompt: query,
-		context: buildScaledownContext(retrievedDocs),
+		context: buildScaledownContext(candidateDocs),
 		query,
+		target_count: normalizedTargetCount,
+		max_docs: normalizedTargetCount,
 		documents: documentsPayload
 	};
 
@@ -343,21 +485,51 @@ async function pruneWithScaledown(query, retrievedDocs) {
 					: null;
 
 			if (byIds && byIds.length > 0) {
-				const selected = retrievedDocs.filter((doc) => byIds.includes(doc.id));
+				const candidateById = new Map(candidateDocs.map((doc) => [doc.id, doc]));
+				const selected = byIds.map((id) => candidateById.get(id)).filter(Boolean);
+				const rankedSelection = rankDocsByRelevance(query, selected);
+				const narrowed = rankedSelection.slice(0, normalizedTargetCount);
+
+				if (narrowed.length === 0) {
+					continue;
+				}
+
 				return {
-					prunedDocs: selected.length > 0 ? selected : fallbackDocs,
+					prunedDocs: narrowed,
 					pruneMeta: {
 						usedScaledown: true,
+						attemptedScaledown: true,
+						usedLocalFallback: false,
+						localFallbackCount: fallbackDocs.length,
 						reason: `scaledown_pruned_ids_${variant.mode}`
 					}
 				};
 			}
 
 			if (directDocs && directDocs.length > 0) {
+				const hydratedDocs = directDocs
+					.map((doc) => {
+						if (doc && doc.id && CASE_BY_ID.has(doc.id)) {
+							return CASE_BY_ID.get(doc.id);
+						}
+
+						return doc;
+					})
+					.filter(Boolean);
+				const rankedSelection = rankDocsByRelevance(query, hydratedDocs);
+				const narrowed = rankedSelection.slice(0, normalizedTargetCount);
+
+				if (narrowed.length === 0) {
+					continue;
+				}
+
 				return {
-					prunedDocs: directDocs,
+					prunedDocs: narrowed,
 					pruneMeta: {
 						usedScaledown: true,
+						attemptedScaledown: true,
+						usedLocalFallback: false,
+						localFallbackCount: fallbackDocs.length,
 						reason: `scaledown_pruned_docs_${variant.mode}`
 					}
 				};
@@ -375,13 +547,19 @@ async function pruneWithScaledown(query, retrievedDocs) {
 				const markerIds = extractDocIdsFromCompressedText(compressedText);
 
 				if (markerIds.length > 0) {
-					const selected = retrievedDocs.filter((doc) => markerIds.includes(doc.id));
+					const candidateById = new Map(candidateDocs.map((doc) => [doc.id, doc]));
+					const selected = markerIds.map((id) => candidateById.get(id)).filter(Boolean);
+					const rankedSelection = rankDocsByRelevance(query, selected);
+					const narrowed = rankedSelection.slice(0, normalizedTargetCount);
 
-					if (selected.length > 0) {
+					if (narrowed.length > 0) {
 						return {
-							prunedDocs: selected,
+							prunedDocs: narrowed,
 							pruneMeta: {
 								usedScaledown: true,
+								attemptedScaledown: true,
+								usedLocalFallback: false,
+								localFallbackCount: fallbackDocs.length,
 								reason: `scaledown_pruned_markers_${variant.mode}`
 							}
 						};
@@ -392,8 +570,11 @@ async function pruneWithScaledown(query, retrievedDocs) {
 			return {
 				prunedDocs: fallbackDocs,
 				pruneMeta: {
-					usedScaledown: true,
-					reason: `scaledown_empty_payload_${variant.mode}`
+					usedScaledown: false,
+					attemptedScaledown: true,
+					usedLocalFallback: true,
+					localFallbackCount: fallbackDocs.length,
+					reason: `scaledown_empty_payload_${variant.mode}_fallback_local`
 				}
 			};
 		} catch (error) {
@@ -411,6 +592,9 @@ async function pruneWithScaledown(query, retrievedDocs) {
 		prunedDocs: fallbackDocs,
 		pruneMeta: {
 			usedScaledown: false,
+			attemptedScaledown: true,
+			usedLocalFallback: true,
+			localFallbackCount: fallbackDocs.length,
 			reason: "scaledown_unavailable"
 		}
 	};
@@ -430,9 +614,6 @@ function toClientDoc(doc) {
 }
 
 function buildDecision(query, prunedDocs) {
-	const queryTokens = query.toLowerCase().match(/[a-z0-9]+/g) || [];
-	const tokenSet = new Set(queryTokens);
-
 	const normalizedCandidates = prunedDocs
 		.map((doc) => {
 			if (doc && doc.id && CASE_BY_ID.has(doc.id)) {
@@ -445,17 +626,7 @@ function buildDecision(query, prunedDocs) {
 
 	const scoredCandidates = normalizedCandidates
 		.map((doc) => {
-			const keywords = Array.isArray(doc.keywords) ? doc.keywords : [];
-			const keywordHits = keywords.reduce((score, keyword) => {
-				return tokenSet.has(String(keyword).toLowerCase()) ? score + 3 : score;
-			}, 0);
-
-			const textBody = `${doc.title || ""} ${doc.text || ""}`.toLowerCase();
-			const textHits = queryTokens.reduce((score, token) => {
-				return token.length > 2 && textBody.includes(token) ? score + 1 : score;
-			}, 0);
-
-			const totalScore = keywordHits + textHits;
+			const totalScore = computeRelevanceScore(tokenize(query), doc);
 
 			return { doc, totalScore };
 		})
@@ -497,19 +668,28 @@ async function handleRetrieveRequest(req, res) {
 	const { query, limit } = validateRetrievePayload(req.body);
 	const retrievedDocs = retrieveDocuments(query);
 	const limitedRetrievedDocs = retrievedDocs.slice(0, limit);
-	const locallyPrunedDocs = intelligentContextPrune(limitedRetrievedDocs, limit);
-	const { prunedDocs, pruneMeta } = await pruneWithScaledown(query, locallyPrunedDocs);
-	const limitedPrunedDocs = prunedDocs.slice(0, limit);
+	const pruningCandidates = retrievedDocs.slice(0, Math.min(retrievedDocs.length, MAX_LIMIT));
+	const pruneTargetCount = computePruneTargetCount(query, limitedRetrievedDocs.length, pruningCandidates.length);
+	const { prunedDocs, pruneMeta } = await pruneWithScaledown(query, pruningCandidates, pruneTargetCount);
+	const limitedPrunedDocs = prunedDocs.slice(0, pruneTargetCount);
+	const retrievedAverageRelevance = calculateAverageRelevance(query, limitedRetrievedDocs);
+	const prunedAverageRelevance = calculateAverageRelevance(query, limitedPrunedDocs);
 	const latencyMs = Date.now() - startedAt;
 
 	return res.json({
 		query,
 		retrieved_count: retrievedDocs.length,
 		returned_retrieved_count: limitedRetrievedDocs.length,
-		local_pruned_count: locallyPrunedDocs.length,
+		local_pruned_count: pruneMeta.localFallbackCount,
+		prune_target_count: pruneTargetCount,
 		pruned_count: limitedPrunedDocs.length,
 		latency_ms: latencyMs,
 		latency_target_ms: LATENCY_TARGET_MS,
+		relevance_meta: {
+			retrieved_average_score: retrievedAverageRelevance,
+			pruned_average_score: prunedAverageRelevance,
+			delta: Number((prunedAverageRelevance - retrievedAverageRelevance).toFixed(2))
+		},
 		prune_meta: pruneMeta,
 		retrieved_docs: limitedRetrievedDocs.map(toClientDoc),
 		pruned_context: limitedPrunedDocs.map(toClientDoc)
@@ -521,20 +701,29 @@ async function handleTriageRequest(req, res) {
 	const { query, limit } = validateRetrievePayload(req.body);
 	const retrievedDocs = retrieveDocuments(query);
 	const limitedRetrievedDocs = retrievedDocs.slice(0, limit);
-	const locallyPrunedDocs = intelligentContextPrune(limitedRetrievedDocs, limit);
-	const { prunedDocs, pruneMeta } = await pruneWithScaledown(query, locallyPrunedDocs);
-	const limitedPrunedDocs = prunedDocs.slice(0, limit);
+	const pruningCandidates = retrievedDocs.slice(0, Math.min(retrievedDocs.length, MAX_LIMIT));
+	const pruneTargetCount = computePruneTargetCount(query, limitedRetrievedDocs.length, pruningCandidates.length);
+	const { prunedDocs, pruneMeta } = await pruneWithScaledown(query, pruningCandidates, pruneTargetCount);
+	const limitedPrunedDocs = prunedDocs.slice(0, pruneTargetCount);
 	const result = buildDecision(query, limitedPrunedDocs);
+	const retrievedAverageRelevance = calculateAverageRelevance(query, limitedRetrievedDocs);
+	const prunedAverageRelevance = calculateAverageRelevance(query, limitedPrunedDocs);
 	const latencyMs = Date.now() - startedAt;
 
 	return res.json({
 		query,
 		retrieved_count: retrievedDocs.length,
 		returned_retrieved_count: limitedRetrievedDocs.length,
-		local_pruned_count: locallyPrunedDocs.length,
+		local_pruned_count: pruneMeta.localFallbackCount,
+		prune_target_count: pruneTargetCount,
 		pruned_count: limitedPrunedDocs.length,
 		latency_ms: latencyMs,
 		latency_target_ms: LATENCY_TARGET_MS,
+		relevance_meta: {
+			retrieved_average_score: retrievedAverageRelevance,
+			pruned_average_score: prunedAverageRelevance,
+			delta: Number((prunedAverageRelevance - retrievedAverageRelevance).toFixed(2))
+		},
 		prune_meta: pruneMeta,
 		retrieved_docs: limitedRetrievedDocs.map(toClientDoc),
 		pruned_context: limitedPrunedDocs.map(toClientDoc),
