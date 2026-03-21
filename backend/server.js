@@ -20,12 +20,17 @@ const QUERY_MAX_LENGTH = parsePositiveInteger(process.env.QUERY_MAX_LENGTH, 300)
 const RATE_LIMIT_WINDOW_MS = parsePositiveInteger(process.env.RATE_LIMIT_WINDOW_MS, 60000);
 const RATE_LIMIT_MAX = parsePositiveInteger(process.env.RATE_LIMIT_MAX, 120);
 const SCALEDOWN_TIMEOUT_MS = parsePositiveInteger(process.env.SCALEDOWN_TIMEOUT_MS, 8000);
+const LATENCY_TARGET_MS = parsePositiveInteger(process.env.LATENCY_TARGET_MS, 500);
+const SCALEDOWN_MIN_CANDIDATES = parsePositiveInteger(process.env.SCALEDOWN_MIN_CANDIDATES, 4);
+const LOCAL_PRUNE_TOP_K = parsePositiveInteger(process.env.LOCAL_PRUNE_TOP_K, 8);
+const MAX_DOC_AGE_DAYS = parsePositiveInteger(process.env.MAX_DOC_AGE_DAYS, 3650);
 const API_JSON_LIMIT = process.env.API_JSON_LIMIT || "50kb";
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || "")
 	.split(",")
 	.map((origin) => origin.trim())
 	.filter(Boolean);
 const SAFE_DEFAULT_LIMIT = Math.min(DEFAULT_LIMIT, MAX_LIMIT);
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 class HttpError extends Error {
 	constructor(statusCode, message) {
@@ -107,6 +112,12 @@ const KEYWORD_TO_TYPE = {
 	cough: "general",
 	headache: "general"
 };
+
+const CASE_BY_ID = new Map(
+	dataset
+		.filter((doc) => doc && doc.id)
+		.map((doc) => [doc.id, doc])
+);
 
 function parseLimit(limitValue) {
 	const parsed = Number.parseInt(limitValue, 10);
@@ -200,6 +211,60 @@ function retrieveDocuments(query) {
 	return dataset.slice(0, 5);
 }
 
+function intelligentContextPrune(retrievedDocs, limit) {
+	const now = Date.now();
+	const maxAgeMs = MAX_DOC_AGE_DAYS * ONE_DAY_MS;
+
+	const recentDocs = retrievedDocs.filter((doc) => {
+		if (!doc.date) {
+			return true;
+		}
+
+		const docEpoch = toEpoch(doc.date);
+		if (docEpoch === 0) {
+			return true;
+		}
+
+		return now - docEpoch <= maxAgeMs;
+	});
+
+	const candidatePool = recentDocs.length > 0 ? recentDocs : retrievedDocs;
+	const maxContextDocs = Math.min(limit, LOCAL_PRUNE_TOP_K);
+
+	return candidatePool.slice(0, maxContextDocs);
+}
+
+function buildScaledownContext(documents) {
+	return documents
+		.map((doc) => {
+			const id = doc.id || "unknown";
+			const type = doc.type || "unknown";
+			const date = doc.date || "unknown";
+			const title = doc.title || "";
+			const text = doc.text || "";
+
+			return `[DOC:${id}] type=${type}; date=${date}; title=${title}; text=${text}`;
+		})
+		.join("\n");
+}
+
+function extractDocIdsFromCompressedText(compressedText) {
+	if (typeof compressedText !== "string" || !compressedText.trim()) {
+		return [];
+	}
+
+	const markerRegex = /\[DOC:([A-Za-z0-9_-]+)\]/g;
+	const ids = [];
+	let match = markerRegex.exec(compressedText);
+
+	while (match) {
+		ids.push(match[1]);
+		match = markerRegex.exec(compressedText);
+	}
+
+	return [...new Set(ids)];
+}
+
 async function pruneWithScaledown(query, retrievedDocs) {
 	const fallbackDocs = retrievedDocs.slice(0, SAFE_DEFAULT_LIMIT);
 	const fallback = {
@@ -217,14 +282,29 @@ async function pruneWithScaledown(query, retrievedDocs) {
 		return fallback;
 	}
 
+	if (retrievedDocs.length < SCALEDOWN_MIN_CANDIDATES) {
+		return {
+			prunedDocs: fallbackDocs,
+			pruneMeta: {
+				usedScaledown: false,
+				reason: "local_prune_sufficient_context"
+			}
+		};
+	}
+
+	const documentsPayload = retrievedDocs.map((doc) => ({
+		id: doc.id,
+		type: doc.type,
+		date: doc.date,
+		title: doc.title,
+		text: doc.text
+	}));
+
 	const requestBody = {
+		prompt: query,
+		context: buildScaledownContext(retrievedDocs),
 		query,
-		documents: retrievedDocs.map((doc) => ({
-			id: doc.id,
-			type: doc.type,
-			date: doc.date,
-			text: doc.text
-		}))
+		documents: documentsPayload
 	};
 
 	const authVariants = scaledownApiKey
@@ -283,6 +363,32 @@ async function pruneWithScaledown(query, retrievedDocs) {
 				};
 			}
 
+			const compressedOutputCandidates = [
+				payload?.results?.compressed_prompt,
+				payload?.compressed_prompt,
+				payload?.results?.compressed_context,
+				payload?.compressed_context,
+				payload?.output
+			].filter((value) => typeof value === "string" && value.trim().length > 0);
+
+			for (const compressedText of compressedOutputCandidates) {
+				const markerIds = extractDocIdsFromCompressedText(compressedText);
+
+				if (markerIds.length > 0) {
+					const selected = retrievedDocs.filter((doc) => markerIds.includes(doc.id));
+
+					if (selected.length > 0) {
+						return {
+							prunedDocs: selected,
+							pruneMeta: {
+								usedScaledown: true,
+								reason: `scaledown_pruned_markers_${variant.mode}`
+							}
+						};
+					}
+				}
+			}
+
 			return {
 				prunedDocs: fallbackDocs,
 				pruneMeta: {
@@ -316,7 +422,67 @@ function toClientDoc(doc) {
 		type: doc.type || "unknown",
 		date: doc.date || null,
 		title: doc.title || "",
-		text: doc.text || doc.content || ""
+		text: doc.text || doc.content || "",
+		diagnosis: doc.diagnosis || null,
+		action: doc.action || null,
+		severity: doc.severity || null
+	};
+}
+
+function buildDecision(query, prunedDocs) {
+	const queryTokens = query.toLowerCase().match(/[a-z0-9]+/g) || [];
+	const tokenSet = new Set(queryTokens);
+
+	const normalizedCandidates = prunedDocs
+		.map((doc) => {
+			if (doc && doc.id && CASE_BY_ID.has(doc.id)) {
+				return CASE_BY_ID.get(doc.id);
+			}
+
+			return doc;
+		})
+		.filter(Boolean);
+
+	const scoredCandidates = normalizedCandidates
+		.map((doc) => {
+			const keywords = Array.isArray(doc.keywords) ? doc.keywords : [];
+			const keywordHits = keywords.reduce((score, keyword) => {
+				return tokenSet.has(String(keyword).toLowerCase()) ? score + 3 : score;
+			}, 0);
+
+			const textBody = `${doc.title || ""} ${doc.text || ""}`.toLowerCase();
+			const textHits = queryTokens.reduce((score, token) => {
+				return token.length > 2 && textBody.includes(token) ? score + 1 : score;
+			}, 0);
+
+			const totalScore = keywordHits + textHits;
+
+			return { doc, totalScore };
+		})
+		.sort((a, b) => {
+			if (b.totalScore !== a.totalScore) {
+				return b.totalScore - a.totalScore;
+			}
+
+			return toEpoch(b.doc.date) - toEpoch(a.doc.date);
+		});
+
+	const bestCase = scoredCandidates.find(({ doc }) => {
+		return doc && doc.diagnosis && doc.action && doc.severity;
+	});
+
+	if (bestCase) {
+		return {
+			diagnosis: bestCase.doc.diagnosis,
+			action: bestCase.doc.action,
+			severity: bestCase.doc.severity
+		};
+	}
+
+	return {
+		diagnosis: "Needs clinician triage review",
+		action: "No confident case match found. Perform immediate clinician assessment.",
+		severity: "MEDIUM"
 	};
 }
 
@@ -327,20 +493,52 @@ function asyncHandler(handler) {
 }
 
 async function handleRetrieveRequest(req, res) {
+	const startedAt = Date.now();
 	const { query, limit } = validateRetrievePayload(req.body);
 	const retrievedDocs = retrieveDocuments(query);
 	const limitedRetrievedDocs = retrievedDocs.slice(0, limit);
-	const { prunedDocs, pruneMeta } = await pruneWithScaledown(query, limitedRetrievedDocs);
+	const locallyPrunedDocs = intelligentContextPrune(limitedRetrievedDocs, limit);
+	const { prunedDocs, pruneMeta } = await pruneWithScaledown(query, locallyPrunedDocs);
 	const limitedPrunedDocs = prunedDocs.slice(0, limit);
+	const latencyMs = Date.now() - startedAt;
 
 	return res.json({
 		query,
 		retrieved_count: retrievedDocs.length,
 		returned_retrieved_count: limitedRetrievedDocs.length,
+		local_pruned_count: locallyPrunedDocs.length,
 		pruned_count: limitedPrunedDocs.length,
+		latency_ms: latencyMs,
+		latency_target_ms: LATENCY_TARGET_MS,
 		prune_meta: pruneMeta,
 		retrieved_docs: limitedRetrievedDocs.map(toClientDoc),
 		pruned_context: limitedPrunedDocs.map(toClientDoc)
+	});
+}
+
+async function handleTriageRequest(req, res) {
+	const startedAt = Date.now();
+	const { query, limit } = validateRetrievePayload(req.body);
+	const retrievedDocs = retrieveDocuments(query);
+	const limitedRetrievedDocs = retrievedDocs.slice(0, limit);
+	const locallyPrunedDocs = intelligentContextPrune(limitedRetrievedDocs, limit);
+	const { prunedDocs, pruneMeta } = await pruneWithScaledown(query, locallyPrunedDocs);
+	const limitedPrunedDocs = prunedDocs.slice(0, limit);
+	const result = buildDecision(query, limitedPrunedDocs);
+	const latencyMs = Date.now() - startedAt;
+
+	return res.json({
+		query,
+		retrieved_count: retrievedDocs.length,
+		returned_retrieved_count: limitedRetrievedDocs.length,
+		local_pruned_count: locallyPrunedDocs.length,
+		pruned_count: limitedPrunedDocs.length,
+		latency_ms: latencyMs,
+		latency_target_ms: LATENCY_TARGET_MS,
+		prune_meta: pruneMeta,
+		retrieved_docs: limitedRetrievedDocs.map(toClientDoc),
+		pruned_context: limitedPrunedDocs.map(toClientDoc),
+		result
 	});
 }
 
@@ -364,7 +562,7 @@ app.get("/.well-known/appspecific/com.chrome.devtools.json", (_req, res) => {
 });
 
 app.post("/retrieve", asyncHandler(handleRetrieveRequest));
-app.post("/triage", asyncHandler(handleRetrieveRequest));
+app.post("/triage", asyncHandler(handleTriageRequest));
 
 app.use((_req, res) => {
 	res.status(404).json({ error: "Route not found" });
