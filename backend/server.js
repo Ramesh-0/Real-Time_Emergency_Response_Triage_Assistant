@@ -24,36 +24,50 @@ const KEYWORD_TO_TYPE = {
 };
 
 function retrieveDocuments(query) {
-	const normalizedQuery = query.toLowerCase();
+	const queryTokens = query.toLowerCase().match(/[a-z0-9]+/g) || [];
+	const tokenSet = new Set(queryTokens);
 
-	const scored = dataset
-		.map((doc) => {
-			const keywordScore = doc.keywords.reduce((score, keyword) => {
-				return normalizedQuery.includes(keyword.toLowerCase()) ? score + 2 : score;
-			}, 0);
+	const scoreDocs = (docs) => {
+		return docs
+			.map((doc) => {
+				const keywordScore = doc.keywords.reduce((score, keyword) => {
+					const normalizedKeyword = String(keyword).toLowerCase();
+					return tokenSet.has(normalizedKeyword) ? score + 2 : score;
+				}, 0);
 
-			const typeBonus = normalizedQuery.includes(doc.type) ? 1 : 0;
-			const totalScore = keywordScore + typeBonus;
+				const typeBonus = tokenSet.has(doc.type.toLowerCase()) ? 1 : 0;
+				const totalScore = keywordScore + typeBonus;
 
-			return { doc, totalScore };
-		})
-		.filter((item) => item.totalScore > 0)
-		.sort((a, b) => b.totalScore - a.totalScore)
-		.map((item) => item.doc);
+				return { doc, totalScore };
+			})
+			.filter((item) => item.totalScore > 0)
+			.sort((a, b) => b.totalScore - a.totalScore)
+			.map((item) => item.doc);
+	};
+
+	const inferredTypeEntry = Object.entries(KEYWORD_TO_TYPE).find(([keyword]) => {
+		return tokenSet.has(keyword);
+	});
+
+	if (inferredTypeEntry) {
+		const inferredType = inferredTypeEntry[1];
+		const typedDocs = dataset.filter((doc) => doc.type === inferredType);
+		const typedScored = scoreDocs(typedDocs);
+
+		if (typedScored.length > 0) {
+			return typedScored;
+		}
+
+		return typedDocs.slice(0, 5);
+	}
+
+	const scored = scoreDocs(dataset);
 
 	if (scored.length > 0) {
 		return scored;
 	}
 
-	const inferredType = Object.entries(KEYWORD_TO_TYPE).find(([keyword]) => {
-		return normalizedQuery.includes(keyword);
-	});
-
-	if (!inferredType) {
-		return dataset.slice(0, 5);
-	}
-
-	return dataset.filter((doc) => doc.type === inferredType[1]);
+	return dataset.slice(0, 5);
 }
 
 async function pruneWithScaledown(query, retrievedDocs) {
@@ -61,7 +75,12 @@ async function pruneWithScaledown(query, retrievedDocs) {
 		prunedDocs: retrievedDocs.slice(0, 5),
 		pruneMeta: {
 			usedScaledown: false,
-			reason: "SCALEDOWN_API_URL not configured"
+			reason: "SCALEDOWN_API_URL not configured",
+			debug: {
+				auth_mode: "none",
+				payload_type: "none",
+				payload_keys: []
+			}
 		}
 	};
 
@@ -103,6 +122,16 @@ async function pruneWithScaledown(query, retrievedDocs) {
 			});
 
 			const payload = response.data || {};
+			const payloadType = Array.isArray(payload) ? "array" : typeof payload;
+			const payloadKeys = payload && typeof payload === "object" && !Array.isArray(payload)
+				? Object.keys(payload)
+				: [];
+			const debugInfo = {
+				auth_mode: variant.mode,
+				payload_type: payloadType,
+				payload_keys: payloadKeys
+			};
+
 			const byIds = Array.isArray(payload.pruned_ids) ? payload.pruned_ids : null;
 			const directDocs = Array.isArray(payload.pruned_docs)
 				? payload.pruned_docs
@@ -114,20 +143,39 @@ async function pruneWithScaledown(query, retrievedDocs) {
 				const selected = retrievedDocs.filter((doc) => byIds.includes(doc.id));
 				return {
 					prunedDocs: selected.length > 0 ? selected : retrievedDocs.slice(0, 5),
-					pruneMeta: { usedScaledown: true, reason: `Pruned via pruned_ids (${variant.mode})` }
+					pruneMeta: {
+						usedScaledown: true,
+						reason: `Pruned via pruned_ids (${variant.mode})`,
+						debug: debugInfo
+					}
 				};
 			}
 
 			if (directDocs && directDocs.length > 0) {
 				return {
 					prunedDocs: directDocs,
-					pruneMeta: { usedScaledown: true, reason: `Pruned via document payload (${variant.mode})` }
+					pruneMeta: {
+						usedScaledown: true,
+						reason: `Pruned via document payload (${variant.mode})`,
+						debug: debugInfo
+					}
 				};
 			}
 
 			return {
 				prunedDocs: retrievedDocs.slice(0, 5),
-				pruneMeta: { usedScaledown: true, reason: `Scaledown returned empty payload (${variant.mode})` }
+				pruneMeta: {
+					usedScaledown: true,
+					reason: `Scaledown returned empty payload (${variant.mode})`,
+					debug: {
+						...debugInfo,
+						candidate_counts: {
+							pruned_ids: Array.isArray(payload.pruned_ids) ? payload.pruned_ids.length : 0,
+							pruned_docs: Array.isArray(payload.pruned_docs) ? payload.pruned_docs.length : 0,
+							documents: Array.isArray(payload.documents) ? payload.documents.length : 0
+						}
+					}
+				}
 			};
 		} catch (error) {
 			lastError = error;
@@ -141,7 +189,13 @@ async function pruneWithScaledown(query, retrievedDocs) {
 			usedScaledown: false,
 			reason: statusCode
 				? `Scaledown error (${statusCode}): ${lastError.message}`
-				: `Scaledown error: ${lastError?.message || "Unknown error"}`
+				: `Scaledown error: ${lastError?.message || "Unknown error"}`,
+			debug: {
+				auth_mode: "all-tried",
+				payload_type: "unknown",
+				payload_keys: [],
+				http_status: statusCode || null
+			}
 		}
 	};
 }
