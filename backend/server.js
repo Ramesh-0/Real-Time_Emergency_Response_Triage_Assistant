@@ -20,6 +20,28 @@ function parsePositiveInteger(value, fallback) {
 	return Number.isNaN(parsed) || parsed <= 0 ? fallback : parsed;
 }
 
+function parseBoolean(value, fallback = false) {
+	if (typeof value === "boolean") {
+		return value;
+	}
+
+	if (typeof value !== "string") {
+		return fallback;
+	}
+
+	const normalized = value.trim().toLowerCase();
+
+	if (["1", "true", "yes", "on"].includes(normalized)) {
+		return true;
+	}
+
+	if (["0", "false", "no", "off"].includes(normalized)) {
+		return false;
+	}
+
+	return fallback;
+}
+
 const app = express();
 const PORT = parsePositiveInteger(process.env.PORT, 5000);
 const DEFAULT_LIMIT = parsePositiveInteger(process.env.DEFAULT_LIMIT, 10);
@@ -30,6 +52,7 @@ const RATE_LIMIT_MAX = parsePositiveInteger(process.env.RATE_LIMIT_MAX, 120);
 const SCALEDOWN_TIMEOUT_MS = parsePositiveInteger(process.env.SCALEDOWN_TIMEOUT_MS, 8000);
 const LATENCY_TARGET_MS = parsePositiveInteger(process.env.LATENCY_TARGET_MS, 500);
 const SCALEDOWN_MIN_CANDIDATES = parsePositiveInteger(process.env.SCALEDOWN_MIN_CANDIDATES, 4);
+const SCALEDOWN_FORCE_REMOTE = parseBoolean(process.env.SCALEDOWN_FORCE_REMOTE, false);
 const LOCAL_PRUNE_TOP_K = parsePositiveInteger(process.env.LOCAL_PRUNE_TOP_K, 8);
 const MAX_DOC_AGE_DAYS = parsePositiveInteger(process.env.MAX_DOC_AGE_DAYS, 3650);
 const API_JSON_LIMIT = process.env.API_JSON_LIMIT || "5mb";
@@ -590,7 +613,20 @@ async function pruneWithScaledown(query, candidateDocs, targetCount) {
 		return fallback;
 	}
 
-	if (candidateDocs.length < SCALEDOWN_MIN_CANDIDATES) {
+	if (candidateDocs.length === 0) {
+		return {
+			prunedDocs: fallbackDocs,
+			pruneMeta: {
+				usedScaledown: false,
+				attemptedScaledown: false,
+				usedLocalFallback: true,
+				localFallbackCount: fallbackDocs.length,
+				reason: "local_prune_no_candidates"
+			}
+		};
+	}
+
+	if (!SCALEDOWN_FORCE_REMOTE && candidateDocs.length < SCALEDOWN_MIN_CANDIDATES) {
 		return {
 			prunedDocs: fallbackDocs,
 			pruneMeta: {
@@ -1074,7 +1110,9 @@ async function startServer() {
 			port: PORT,
 			node_env: process.env.NODE_ENV || "development",
 			total_searchable_chunks: hybridIndex.size(),
-			chunk_goal_met: hybridIndex.size() >= MIN_SEARCHABLE_CHUNKS
+			chunk_goal_met: hybridIndex.size() >= MIN_SEARCHABLE_CHUNKS,
+			scaledown_min_candidates: SCALEDOWN_MIN_CANDIDATES,
+			scaledown_force_remote: SCALEDOWN_FORCE_REMOTE
 		});
 	});
 }
