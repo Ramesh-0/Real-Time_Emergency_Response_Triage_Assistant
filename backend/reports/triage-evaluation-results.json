@@ -1,0 +1,4797 @@
+{
+  "generated_at": "2026-03-22T14:52:33.583Z",
+  "base_url": "http://127.0.0.1:5108",
+  "dataset_path": "X:\\Real-Time_Emergency_Response_Triage_Assistant\\backend\\evaluation\\labeled-triage-prompts.json",
+  "report_markdown_path": "X:\\Real-Time_Emergency_Response_Triage_Assistant\\backend\\reports\\triage-evaluation-report.md",
+  "reproducibility_config": {
+    "port": 5108,
+    "request_timeout_ms": 4000,
+    "health_timeout_ms": 45000,
+    "request_limit": 8,
+    "pinned_env": {
+      "scaledown_api_url": "",
+      "scaledown_force_remote": false,
+      "doc_recency_filter_enabled": true,
+      "doc_type_filter_enabled": true,
+      "doc_strict_type_filter_on_critical": true,
+      "doc_critical_recency_days": 365,
+      "doc_non_critical_recency_days": 3650
+    }
+  },
+  "thresholds": {
+    "diagnosis_accuracy_min": 0.85,
+    "severity_accuracy_min": 0.9,
+    "noisy_suppression_min": 0.7,
+    "leakage_free_min": 0.95
+  },
+  "summary": {
+    "total_cases": 60,
+    "dataset_size_gate_met": true,
+    "request_failure_count": 0,
+    "diagnosis_correct_count": 60,
+    "severity_correct_count": 60,
+    "leakage_free_count": 60,
+    "noisy_case_count": 15,
+    "noisy_suppressed_count": 15,
+    "diagnosis_accuracy": 1,
+    "severity_accuracy": 1,
+    "leakage_free_rate": 1,
+    "noisy_suppression_rate": 1,
+    "average_reduction_ratio": 0.3142,
+    "average_reduction_ratio_noisy": 0.3528
+  },
+  "gate": {
+    "checks": [
+      {
+        "name": "Diagnosis accuracy",
+        "metric": 1,
+        "threshold": 0.85,
+        "passed": true
+      },
+      {
+        "name": "Severity correctness",
+        "metric": 1,
+        "threshold": 0.9,
+        "passed": true
+      },
+      {
+        "name": "Noise suppression (noisy set)",
+        "metric": 1,
+        "threshold": 0.7,
+        "passed": true
+      },
+      {
+        "name": "Leakage free rate",
+        "metric": 1,
+        "threshold": 0.95,
+        "passed": true
+      }
+    ],
+    "overall_passed": true
+  },
+  "by_category": [
+    {
+      "category": "cardiac",
+      "case_count": 15,
+      "diagnosis_accuracy": 1,
+      "severity_accuracy": 1,
+      "leakage_free_rate": 1,
+      "average_reduction_ratio": 0.2667,
+      "noisy_case_count": 0,
+      "noisy_suppression_rate": 0
+    },
+    {
+      "category": "dental",
+      "case_count": 15,
+      "diagnosis_accuracy": 1,
+      "severity_accuracy": 1,
+      "leakage_free_rate": 1,
+      "average_reduction_ratio": 0.3344,
+      "noisy_case_count": 0,
+      "noisy_suppression_rate": 0
+    },
+    {
+      "category": "fever",
+      "case_count": 15,
+      "diagnosis_accuracy": 1,
+      "severity_accuracy": 1,
+      "leakage_free_rate": 1,
+      "average_reduction_ratio": 0.3028,
+      "noisy_case_count": 0,
+      "noisy_suppression_rate": 0
+    },
+    {
+      "category": "mixed-noise",
+      "case_count": 15,
+      "diagnosis_accuracy": 1,
+      "severity_accuracy": 1,
+      "leakage_free_rate": 1,
+      "average_reduction_ratio": 0.3528,
+      "noisy_case_count": 15,
+      "noisy_suppression_rate": 1
+    }
+  ],
+  "noise_filter_config": {
+    "recency_filter_enabled": true,
+    "type_filter_enabled": true,
+    "strict_type_filter_on_critical": true,
+    "critical_recency_days": 365,
+    "non_critical_recency_days": 3650,
+    "max_doc_age_days": 3650
+  },
+  "seed_info": {
+    "ingested_item_count": 4,
+    "ingested_chunk_count": 4,
+    "total_searchable_chunks": 18
+  },
+  "results": [
+    {
+      "id": "T-001",
+      "category": "cardiac",
+      "query": "severe chest pain with sweating and left arm pressure",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.25,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 4,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 9.55,
+      "latency_ms": 4.17,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 9,
+        "total_filtered_out_count": 11,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-002",
+      "category": "cardiac",
+      "query": "crushing chest pain sweating shortness of breath and left arm pain",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.25,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 4,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 5.7,
+      "latency_ms": 0.96,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 12,
+        "total_filtered_out_count": 14,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-003",
+      "category": "cardiac",
+      "query": "emergency chest pressure radiating to left arm with diaphoresis",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.25,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 4,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 6.14,
+      "latency_ms": 0.62,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 8,
+        "total_filtered_out_count": 10,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-004",
+      "category": "cardiac",
+      "query": "acute chest pain plus sweating and breathlessness",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.3333,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 3,
+      "pruned_count": 2,
+      "prune_target_count": 2,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 4.6,
+      "latency_ms": 0.57,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 2,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 10,
+        "total_filtered_out_count": 12,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-005",
+      "category": "cardiac",
+      "query": "chest tightness severe pain left arm heaviness and sweating",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.25,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 4,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 5.77,
+      "latency_ms": 0.7,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 9,
+        "total_filtered_out_count": 11,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-006",
+      "category": "cardiac",
+      "query": "intense chest pressure and cold sweat with arm pain",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.25,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 4,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 6.03,
+      "latency_ms": 0.54,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 8,
+        "total_filtered_out_count": 10,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-007",
+      "category": "cardiac",
+      "query": "sudden chest pain with sweating dizziness and left arm discomfort",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.25,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 4,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 5.35,
+      "latency_ms": 0.66,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 10,
+        "total_filtered_out_count": 12,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-008",
+      "category": "cardiac",
+      "query": "left sided chest pain sweating and short breath during exertion",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.25,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 4,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 5.46,
+      "latency_ms": 0.78,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 9,
+        "total_filtered_out_count": 11,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-009",
+      "category": "cardiac",
+      "query": "persistent chest pressure radiating arm with profuse sweating",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.3333,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 3,
+      "pruned_count": 2,
+      "prune_target_count": 2,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 4.73,
+      "latency_ms": 0.63,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 2,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 6,
+        "total_filtered_out_count": 8,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-010",
+      "category": "cardiac",
+      "query": "emergency chest discomfort with arm pain and diaphoresis",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.25,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 4,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 5.43,
+      "latency_ms": 0.87,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 9,
+        "total_filtered_out_count": 11,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-011",
+      "category": "cardiac",
+      "query": "chest pain severe sweating and difficulty breathing",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.3333,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 3,
+      "pruned_count": 2,
+      "prune_target_count": 2,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 4.47,
+      "latency_ms": 0.51,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 2,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 8,
+        "total_filtered_out_count": 10,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-012",
+      "category": "cardiac",
+      "query": "crushing substernal pain with left arm ache and sweat",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.25,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 4,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.55,
+      "latency_ms": 0.42,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 9,
+        "total_filtered_out_count": 11,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-013",
+      "category": "cardiac",
+      "query": "acute cardiac type chest pain sweating and breath shortness",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.25,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 4,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.98,
+      "latency_ms": 0.37,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 11,
+        "total_filtered_out_count": 13,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-014",
+      "category": "cardiac",
+      "query": "chest pressure with sweating and left arm pain at rest",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.25,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 4,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.55,
+      "latency_ms": 0.35,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 9,
+        "total_filtered_out_count": 11,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-015",
+      "category": "cardiac",
+      "query": "severe chest pain and sweating with worsening left arm pressure",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.25,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 4,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 4.6,
+      "latency_ms": 0.49,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 9,
+        "total_filtered_out_count": 11,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-016",
+      "category": "fever",
+      "query": "high fever with body ache and fatigue all day",
+      "expected_case_id": "G-001",
+      "expected_type": "general",
+      "expected_diagnosis": "Acute febrile illness",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute febrile illness",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.2857,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 7,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 4.43,
+      "latency_ms": 0.4,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 7,
+        "total_filtered_out_count": 9,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-017",
+      "category": "fever",
+      "query": "persistent fever and severe body aches with weakness",
+      "expected_case_id": "G-001",
+      "expected_type": "general",
+      "expected_diagnosis": "Acute febrile illness",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute febrile illness",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.2857,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 7,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 4.2,
+      "latency_ms": 0.64,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 6,
+        "total_filtered_out_count": 8,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-018",
+      "category": "fever",
+      "query": "fever above 101 with myalgia and tiredness",
+      "expected_case_id": "G-001",
+      "expected_type": "general",
+      "expected_diagnosis": "Acute febrile illness",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute febrile illness",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.2857,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 7,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.48,
+      "latency_ms": 0.35,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 7,
+        "total_filtered_out_count": 9,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-019",
+      "category": "fever",
+      "query": "acute febrile illness with fatigue and generalized aches",
+      "expected_case_id": "G-001",
+      "expected_type": "general",
+      "expected_diagnosis": "Acute febrile illness",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute febrile illness",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.4,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 5,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 2.92,
+      "latency_ms": 0.38,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 7,
+        "total_filtered_out_count": 9,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-020",
+      "category": "fever",
+      "query": "fever chills body pain and marked fatigue",
+      "expected_case_id": "G-001",
+      "expected_type": "general",
+      "expected_diagnosis": "Acute febrile illness",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute febrile illness",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.2857,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 7,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.44,
+      "latency_ms": 0.35,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 8,
+        "total_filtered_out_count": 10,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-021",
+      "category": "fever",
+      "query": "prolonged fever with body soreness and exhaustion",
+      "expected_case_id": "G-001",
+      "expected_type": "general",
+      "expected_diagnosis": "Acute febrile illness",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute febrile illness",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.2857,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 7,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.76,
+      "latency_ms": 0.66,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 6,
+        "total_filtered_out_count": 8,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-022",
+      "category": "fever",
+      "query": "recurring fever and muscle ache with low energy",
+      "expected_case_id": "G-001",
+      "expected_type": "general",
+      "expected_diagnosis": "Acute febrile illness",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute febrile illness",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.3333,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 6,
+      "pruned_count": 4,
+      "prune_target_count": 4,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.22,
+      "latency_ms": 0.46,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 4,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 6,
+        "total_filtered_out_count": 8,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-023",
+      "category": "fever",
+      "query": "fever and diffuse body ache causing fatigue",
+      "expected_case_id": "G-001",
+      "expected_type": "general",
+      "expected_diagnosis": "Acute febrile illness",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute febrile illness",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.2857,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 7,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.69,
+      "latency_ms": 0.53,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 7,
+        "total_filtered_out_count": 9,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-024",
+      "category": "fever",
+      "query": "high temperature fatigue and body aches since morning",
+      "expected_case_id": "G-001",
+      "expected_type": "general",
+      "expected_diagnosis": "Acute febrile illness",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute febrile illness",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.2857,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 7,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 4.74,
+      "latency_ms": 0.67,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 7,
+        "total_filtered_out_count": 9,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-025",
+      "category": "fever",
+      "query": "fever with malaise and generalized ache needing checkup",
+      "expected_case_id": "G-001",
+      "expected_type": "general",
+      "expected_diagnosis": "Acute febrile illness",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute febrile illness",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.3333,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 6,
+      "pruned_count": 4,
+      "prune_target_count": 4,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.76,
+      "latency_ms": 0.41,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 4,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 6,
+        "total_filtered_out_count": 8,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-026",
+      "category": "fever",
+      "query": "persistent pyrexia body pain and fatigue",
+      "expected_case_id": "G-001",
+      "expected_type": "general",
+      "expected_diagnosis": "Acute febrile illness",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute febrile illness",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.3333,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 6,
+      "pruned_count": 4,
+      "prune_target_count": 4,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 6.39,
+      "latency_ms": 0.77,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 4,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 8,
+        "total_filtered_out_count": 10,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-027",
+      "category": "fever",
+      "query": "fever and body ache after viral exposure with weakness",
+      "expected_case_id": "G-001",
+      "expected_type": "general",
+      "expected_diagnosis": "Acute febrile illness",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute febrile illness",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.2857,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 7,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.65,
+      "latency_ms": 0.43,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 6,
+        "total_filtered_out_count": 8,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-028",
+      "category": "fever",
+      "query": "fever plus fatigue and muscle aches worsening",
+      "expected_case_id": "G-001",
+      "expected_type": "general",
+      "expected_diagnosis": "Acute febrile illness",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute febrile illness",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.2857,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 7,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.21,
+      "latency_ms": 0.43,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 8,
+        "total_filtered_out_count": 10,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-029",
+      "category": "fever",
+      "query": "two day fever with body ache and tiredness",
+      "expected_case_id": "G-001",
+      "expected_type": "general",
+      "expected_diagnosis": "Acute febrile illness",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute febrile illness",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.2857,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 7,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 2.8,
+      "latency_ms": 0.4,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 8,
+        "total_filtered_out_count": 10,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-030",
+      "category": "fever",
+      "query": "fever and full body pain with low energy and fatigue",
+      "expected_case_id": "G-001",
+      "expected_type": "general",
+      "expected_diagnosis": "Acute febrile illness",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute febrile illness",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.2857,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 7,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.07,
+      "latency_ms": 0.48,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 8,
+        "total_filtered_out_count": 10,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "general"
+        ],
+        "allowed_types": [
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-031",
+      "category": "dental",
+      "query": "severe tooth pain with gum swelling and pus pocket",
+      "expected_case_id": "D-001",
+      "expected_type": "dental",
+      "expected_diagnosis": "Acute dental abscess",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute dental abscess",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.3333,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 3,
+      "pruned_count": 2,
+      "prune_target_count": 2,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 2.99,
+      "latency_ms": 0.31,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 2,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 8,
+        "total_filtered_out_count": 10,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-032",
+      "category": "dental",
+      "query": "molar abscess pain and jaw swelling with tenderness",
+      "expected_case_id": "D-001",
+      "expected_type": "dental",
+      "expected_diagnosis": "Acute dental abscess",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute dental abscess",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.3333,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 3,
+      "pruned_count": 2,
+      "prune_target_count": 2,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.33,
+      "latency_ms": 0.34,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 2,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 8,
+        "total_filtered_out_count": 10,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-033",
+      "category": "dental",
+      "query": "acute tooth abscess with swollen gum and severe pain",
+      "expected_case_id": "D-001",
+      "expected_type": "dental",
+      "expected_diagnosis": "Acute dental abscess",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute dental abscess",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.3333,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 3,
+      "pruned_count": 2,
+      "prune_target_count": 2,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 4.64,
+      "latency_ms": 0.46,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 2,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 8,
+        "total_filtered_out_count": 10,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-034",
+      "category": "dental",
+      "query": "throbbing molar pain gum abscess and facial swelling",
+      "expected_case_id": "D-001",
+      "expected_type": "dental",
+      "expected_diagnosis": "Acute dental abscess",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute dental abscess",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.3333,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 3,
+      "pruned_count": 2,
+      "prune_target_count": 2,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.26,
+      "latency_ms": 0.36,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 2,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 9,
+        "total_filtered_out_count": 11,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-035",
+      "category": "dental",
+      "query": "jaw swelling with infected tooth and pus discharge",
+      "expected_case_id": "D-001",
+      "expected_type": "dental",
+      "expected_diagnosis": "Acute dental abscess",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute dental abscess",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.3333,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 3,
+      "pruned_count": 2,
+      "prune_target_count": 2,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.8,
+      "latency_ms": 0.45,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 2,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 7,
+        "total_filtered_out_count": 9,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-036",
+      "category": "dental",
+      "query": "severe dental abscess pain in molar with gum edema",
+      "expected_case_id": "D-001",
+      "expected_type": "dental",
+      "expected_diagnosis": "Acute dental abscess",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute dental abscess",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.4,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 5,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.84,
+      "latency_ms": 0.82,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 6,
+        "total_filtered_out_count": 8,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-037",
+      "category": "dental",
+      "query": "localized gum swelling around molar with intense tooth pain",
+      "expected_case_id": "D-001",
+      "expected_type": "dental",
+      "expected_diagnosis": "Acute dental abscess",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute dental abscess",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.3333,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 3,
+      "pruned_count": 2,
+      "prune_target_count": 2,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 2.67,
+      "latency_ms": 0.3,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 2,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 7,
+        "total_filtered_out_count": 9,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-038",
+      "category": "dental",
+      "query": "tooth infection with abscess and painful jaw swelling",
+      "expected_case_id": "D-001",
+      "expected_type": "dental",
+      "expected_diagnosis": "Acute dental abscess",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute dental abscess",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.25,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 4,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.28,
+      "latency_ms": 0.37,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 8,
+        "total_filtered_out_count": 10,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-039",
+      "category": "dental",
+      "query": "dental abscess symptoms gum swelling molar pain and pus",
+      "expected_case_id": "D-001",
+      "expected_type": "dental",
+      "expected_diagnosis": "Acute dental abscess",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute dental abscess",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.4,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 5,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 4.19,
+      "latency_ms": 0.91,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 10,
+        "total_filtered_out_count": 12,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-040",
+      "category": "dental",
+      "query": "urgent tooth pain plus jaw swelling and gum abscess",
+      "expected_case_id": "D-001",
+      "expected_type": "dental",
+      "expected_diagnosis": "Acute dental abscess",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute dental abscess",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.4,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 5,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 4.3,
+      "latency_ms": 0.48,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 10,
+        "total_filtered_out_count": 12,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-041",
+      "category": "dental",
+      "query": "severe gum abscess causing tooth pain and swelling",
+      "expected_case_id": "D-001",
+      "expected_type": "dental",
+      "expected_diagnosis": "Acute dental abscess",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute dental abscess",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.3333,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 3,
+      "pruned_count": 2,
+      "prune_target_count": 2,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 4.41,
+      "latency_ms": 0.3,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 2,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 8,
+        "total_filtered_out_count": 10,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-042",
+      "category": "dental",
+      "query": "swollen jaw from tooth abscess with severe molar ache",
+      "expected_case_id": "D-001",
+      "expected_type": "dental",
+      "expected_diagnosis": "Acute dental abscess",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute dental abscess",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.25,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 4,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 4.31,
+      "latency_ms": 0.75,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 7,
+        "total_filtered_out_count": 9,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-043",
+      "category": "dental",
+      "query": "painful molar infection with gum swelling and abscess",
+      "expected_case_id": "D-001",
+      "expected_type": "dental",
+      "expected_diagnosis": "Acute dental abscess",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute dental abscess",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.25,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 4,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 2.85,
+      "latency_ms": 0.31,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 8,
+        "total_filtered_out_count": 10,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-044",
+      "category": "dental",
+      "query": "acute dental infection with tooth pain and facial swelling",
+      "expected_case_id": "D-001",
+      "expected_type": "dental",
+      "expected_diagnosis": "Acute dental abscess",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute dental abscess",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.4,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 5,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 2.67,
+      "latency_ms": 0.37,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 9,
+        "total_filtered_out_count": 11,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-045",
+      "category": "dental",
+      "query": "tooth abscess and gum swelling with intense chewing pain",
+      "expected_case_id": "D-001",
+      "expected_type": "dental",
+      "expected_diagnosis": "Acute dental abscess",
+      "expected_severity": "MEDIUM",
+      "actual_diagnosis": "Acute dental abscess",
+      "actual_severity": "MEDIUM",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": false,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.3333,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 3,
+      "pruned_count": 2,
+      "prune_target_count": 2,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.05,
+      "latency_ms": 0.42,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 2,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 8,
+        "total_filtered_out_count": 10,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "dental"
+        ],
+        "allowed_types": [
+          "dental"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-046",
+      "category": "mixed-noise",
+      "query": "severe chest pain sweating left arm pain plus old tooth cleaning note",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": true,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.375,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 8,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 2.56,
+      "latency_ms": 0.35,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology",
+          "dental"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 4,
+        "total_filtered_out_count": 6,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology",
+          "dental"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-047",
+      "category": "mixed-noise",
+      "query": "chest pressure with diaphoresis and arm pain also travel refill request",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": true,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.25,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 4,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.04,
+      "latency_ms": 0.37,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 10,
+        "total_filtered_out_count": 12,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-048",
+      "category": "mixed-noise",
+      "query": "acute chest pain and sweating with unrelated rash from detergent history",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": true,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.375,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 8,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 2.5,
+      "latency_ms": 0.36,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology",
+          "general"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "general"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 4,
+        "total_filtered_out_count": 6,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology",
+          "general"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "general"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-049",
+      "category": "mixed-noise",
+      "query": "emergency chest pain left arm pressure with mention of wisdom tooth history",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": true,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.375,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 8,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 2.91,
+      "latency_ms": 0.49,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology",
+          "dental"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 3,
+        "total_filtered_out_count": 5,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology",
+          "dental"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-050",
+      "category": "mixed-noise",
+      "query": "crushing chest discomfort with sweat and short breath plus sore throat last month",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": true,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.375,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 8,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 4.39,
+      "latency_ms": 0.66,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology",
+          "general"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "general"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 4,
+        "total_filtered_out_count": 6,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology",
+          "general"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "general"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-051",
+      "category": "mixed-noise",
+      "query": "severe chest pain and sweating alongside routine retainer adjustment note",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": true,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.25,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 4,
+      "pruned_count": 3,
+      "prune_target_count": 3,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.54,
+      "latency_ms": 0.32,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 3,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 10,
+        "total_filtered_out_count": 12,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-052",
+      "category": "mixed-noise",
+      "query": "left arm chest pain with diaphoresis and fatigue plus admin refill paperwork",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": true,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.375,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 8,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 2.89,
+      "latency_ms": 0.39,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "cardiology",
+          "general"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 5,
+        "total_filtered_out_count": 7,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "cardiology",
+          "general"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-053",
+      "category": "mixed-noise",
+      "query": "acute chest pressure and sweating mixed with cough and dental scaling history",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": true,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.375,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 8,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.25,
+      "latency_ms": 0.4,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology",
+          "general",
+          "dental"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "general",
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 2,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology",
+          "general",
+          "dental"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "general",
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-054",
+      "category": "mixed-noise",
+      "query": "chest pain radiating arm with cold sweat and old vaccination fever note",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": true,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.375,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 8,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 4.13,
+      "latency_ms": 0.5,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "cardiology",
+          "general"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 3,
+        "total_filtered_out_count": 5,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": false,
+        "inferred_types": [
+          "cardiology",
+          "general"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "general"
+        ],
+        "strict_type_check": false,
+        "max_age_days": 3650,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-055",
+      "category": "mixed-noise",
+      "query": "urgent chest pressure with sweating plus jaw retainer discomfort mentioned",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": true,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.375,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 8,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.36,
+      "latency_ms": 0.34,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology",
+          "dental"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 5,
+        "total_filtered_out_count": 7,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology",
+          "dental"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-056",
+      "category": "mixed-noise",
+      "query": "severe chest pain with breathlessness and unrelated travel medication refill",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": true,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.3333,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 3,
+      "pruned_count": 2,
+      "prune_target_count": 2,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 2.96,
+      "latency_ms": 0.28,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 2,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 10,
+        "total_filtered_out_count": 12,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-057",
+      "category": "mixed-noise",
+      "query": "chest pain and sweating plus mild rash and orthodontic adjustment background",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": true,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.375,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 8,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 4.15,
+      "latency_ms": 0.65,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology",
+          "general"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "general"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 4,
+        "total_filtered_out_count": 6,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology",
+          "general"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "general"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-058",
+      "category": "mixed-noise",
+      "query": "acute chest pressure left arm pain with nonurgent cleaning appointment noise",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": true,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.3333,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 3,
+      "pruned_count": 2,
+      "prune_target_count": 2,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 2.95,
+      "latency_ms": 0.51,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 2,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 7,
+        "total_filtered_out_count": 9,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology"
+        ],
+        "allowed_types": [
+          "cardiology"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-059",
+      "category": "mixed-noise",
+      "query": "emergency chest pain with diaphoresis plus historical tooth extraction chatter",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": true,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.375,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 8,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.54,
+      "latency_ms": 0.48,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology",
+          "dental"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 5,
+        "total_filtered_out_count": 7,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology",
+          "dental"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "dental"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    },
+    {
+      "id": "T-060",
+      "category": "mixed-noise",
+      "query": "severe chest pain sweating and arm pressure with mixed fever and refill noise",
+      "expected_case_id": "C-001",
+      "expected_type": "cardiology",
+      "expected_diagnosis": "Possible acute coronary syndrome",
+      "expected_severity": "HIGH",
+      "actual_diagnosis": "Possible acute coronary syndrome",
+      "actual_severity": "HIGH",
+      "diagnosis_correct": true,
+      "severity_correct": true,
+      "is_noisy": true,
+      "noise_suppressed": true,
+      "reduction_observed": true,
+      "reduction_ratio": 0.375,
+      "post_prune_leakage_count": 0,
+      "retrieval_leakage_count": 0,
+      "returned_retrieved_count": 8,
+      "pruned_count": 5,
+      "prune_target_count": 5,
+      "request_failed": false,
+      "request_error": null,
+      "request_status": null,
+      "request_latency_ms": 3.81,
+      "latency_ms": 0.74,
+      "prune_meta": {
+        "usedScaledown": false,
+        "attemptedScaledown": false,
+        "usedLocalFallback": true,
+        "localFallbackCount": 5,
+        "reason": "scaledown_not_configured",
+        "post_prune_guardrail_removed_count": 0
+      },
+      "retrieval_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology",
+          "general"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "general"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 2,
+        "type_filtered_out_count": 3,
+        "total_filtered_out_count": 5,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      },
+      "post_prune_filter_meta": {
+        "checks_applied": {
+          "recency": true,
+          "type": true
+        },
+        "critical_query": true,
+        "inferred_types": [
+          "cardiology",
+          "general"
+        ],
+        "allowed_types": [
+          "cardiology",
+          "general"
+        ],
+        "strict_type_check": true,
+        "max_age_days": 365,
+        "recency_filtered_out_count": 0,
+        "type_filtered_out_count": 0,
+        "total_filtered_out_count": 0,
+        "fallback_to_unfiltered": false,
+        "unrelated_type_leakage_count": 0,
+        "stale_record_leakage_count": 0
+      }
+    }
+  ]
+}

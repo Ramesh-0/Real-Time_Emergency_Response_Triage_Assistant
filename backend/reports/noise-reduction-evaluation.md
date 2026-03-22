@@ -1,6 +1,6 @@
 # Noise Reduction Evaluation Report
 
-Generated UTC: 2026-03-22T14:06:33.786Z
+Generated UTC: 2026-03-22T14:51:23.268Z
 Base URL: http://127.0.0.1:5089
 Critical recency window (days): 365
 

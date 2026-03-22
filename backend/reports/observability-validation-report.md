@@ -1,6 +1,6 @@
 # Observability Validation Report
 
-Generated UTC: 2026-03-22T14:22:10.382Z
+Generated UTC: 2026-03-22T14:53:46.832Z
 Base URL: http://127.0.0.1:5099
 Validation request id: obs-validate-request-001
 
@@ -25,10 +25,10 @@ Validation request id: obs-validate-request-001
 ## Dashboard Snapshot
 ```json
 {
-  "request_id": "0345894a-b9dc-454e-aaba-e7e55c22de13",
-  "generated_at": "2026-03-22T14:22:10.347Z",
-  "started_at": "2026-03-22T14:22:09.894Z",
-  "uptime_seconds": 2,
+  "request_id": "da031381-28ee-4a1f-bdb5-a7223290f3f8",
+  "generated_at": "2026-03-22T14:53:46.821Z",
+  "started_at": "2026-03-22T14:53:46.461Z",
+  "uptime_seconds": 1,
   "window_config": {
     "latency_window_size": 300,
     "error_rate_window_size": 300,
@@ -48,10 +48,10 @@ Validation request id: obs-validate-request-001
       "server_error_count": 0,
       "latency_ms": {
         "count": 1,
-        "avg": 40.1,
-        "p50": 40.1,
-        "p95": 40.1,
-        "max": 40.1
+        "avg": 17.13,
+        "p50": 17.13,
+        "p95": 17.13,
+        "max": 17.13
       },
       "error_rate": 0,
       "prune_reduction_ratio": {
@@ -68,10 +68,10 @@ Validation request id: obs-validate-request-001
       "server_error_count": 0,
       "latency_ms": {
         "count": 1,
-        "avg": 29.92,
-        "p50": 29.92,
-        "p95": 29.92,
-        "max": 29.92
+        "avg": 16.89,
+        "p50": 16.89,
+        "p95": 16.89,
+        "max": 16.89
       },
       "error_rate": 0,
       "prune_reduction_ratio": {
@@ -88,10 +88,10 @@ Validation request id: obs-validate-request-001
       "server_error_count": 0,
       "latency_ms": {
         "count": 6,
-        "avg": 30.65,
-        "p50": 17.97,
-        "p95": 20.04,
-        "max": 98.05
+        "avg": 16.89,
+        "p50": 11.73,
+        "p95": 14.69,
+        "max": 42.68
       },
       "error_rate": 0,
       "prune_reduction_ratio": {
@@ -115,20 +115,20 @@ Validation request id: obs-validate-request-001
     "p95_latency_breach": {
       "name": "p95_latency_breach",
       "active": true,
-      "active_since": "2026-03-22T14:22:10.241Z",
-      "last_evaluated_at": "2026-03-22T14:22:10.347Z",
+      "active_since": "2026-03-22T14:53:46.755Z",
+      "last_evaluated_at": "2026-03-22T14:53:46.821Z",
       "details": {
         "threshold_ms": 1,
         "min_samples": 3,
         "sample_count": 6,
-        "p95_latency_ms": 20.04
+        "p95_latency_ms": 14.69
       }
     },
     "pruning_outage": {
       "name": "pruning_outage",
       "active": true,
-      "active_since": "2026-03-22T14:22:10.237Z",
-      "last_evaluated_at": "2026-03-22T14:22:10.347Z",
+      "active_since": "2026-03-22T14:53:46.754Z",
+      "last_evaluated_at": "2026-03-22T14:53:46.821Z",
       "details": {
         "min_attempts": 3,
         "availability_threshold": 0,
@@ -147,8 +147,8 @@ Validation request id: obs-validate-request-001
 ## Alerts Snapshot
 ```json
 {
-  "request_id": "6c177d52-4e4f-4aec-88d6-02d763d76209",
-  "generated_at": "2026-03-22T14:22:10.353Z",
+  "request_id": "3808cd17-67ab-43c9-bcdd-f4be2c7e4525",
+  "generated_at": "2026-03-22T14:53:46.824Z",
   "active_alerts": [
     "p95_latency_breach",
     "pruning_outage"
@@ -157,20 +157,20 @@ Validation request id: obs-validate-request-001
     "p95_latency_breach": {
       "name": "p95_latency_breach",
       "active": true,
-      "active_since": "2026-03-22T14:22:10.241Z",
-      "last_evaluated_at": "2026-03-22T14:22:10.353Z",
+      "active_since": "2026-03-22T14:53:46.755Z",
+      "last_evaluated_at": "2026-03-22T14:53:46.824Z",
       "details": {
         "threshold_ms": 1,
         "min_samples": 3,
         "sample_count": 6,
-        "p95_latency_ms": 20.04
+        "p95_latency_ms": 14.69
       }
     },
     "pruning_outage": {
       "name": "pruning_outage",
       "active": true,
-      "active_since": "2026-03-22T14:22:10.237Z",
-      "last_evaluated_at": "2026-03-22T14:22:10.353Z",
+      "active_since": "2026-03-22T14:53:46.754Z",
+      "last_evaluated_at": "2026-03-22T14:53:46.824Z",
       "details": {
         "min_attempts": 3,
         "availability_threshold": 0,
@@ -196,12 +196,12 @@ triage_http_requests_total{endpoint="/triage",method="POST",status_code="200"} 6
 # TYPE triage_http_error_rate gauge
 # HELP triage_prune_reduction_ratio_avg Rolling average prune reduction ratio by endpoint (0 to 1).
 # TYPE triage_prune_reduction_ratio_avg gauge
-triage_http_latency_ms_avg{endpoint="/health"} 40.1
-triage_http_latency_ms_p95{endpoint="/health"} 40.1
+triage_http_latency_ms_avg{endpoint="/health"} 17.13
+triage_http_latency_ms_p95{endpoint="/health"} 17.13
 triage_http_error_rate{endpoint="/health"} 0
 triage_prune_reduction_ratio_avg{endpoint="/health"} 0
-triage_http_latency_ms_avg{endpoint="/triage"} 30.65
-triage_http_latency_ms_p95{endpoint="/triage"} 20.04
+triage_http_latency_ms_avg{endpoint="/triage"} 16.89
+triage_http_latency_ms_p95{endpoint="/triage"} 14.69
 triage_http_error_rate{endpoint="/triage"} 0
 triage_prune_reduction_ratio_avg{endpoint="/triage"} 0.4
 # HELP triage_external_prune_attempts_total Total external pruning attempts.

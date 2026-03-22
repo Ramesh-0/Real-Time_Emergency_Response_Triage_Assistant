@@ -148,6 +148,50 @@ Validation report output:
 
 ---
 
+## 🧪 Evaluation Harness
+
+Reproducible triage evaluation harness now includes:
+
+* Versioned labeled test set: `backend/evaluation/labeled-triage-prompts.json`
+* 60 prompts across cardiac, fever, dental, and mixed-noise scenarios
+* Tracked metrics:
+
+   * diagnosis accuracy
+   * severity correctness
+   * noise suppression and leakage-free rate
+
+Run evaluation harness:
+
+```bash
+cd backend
+npm run evaluate:triage
+```
+
+Outputs:
+
+* `backend/reports/triage-evaluation-report.md`
+* `backend/reports/triage-evaluation-results.json`
+
+---
+
+## ✅ Critical Regression Tests
+
+Critical-case regression coverage includes:
+
+* cardiac emergency prompt
+* fever prompt
+* dental abscess prompt
+* mixed-noise prompt (must still return correct diagnosis/severity and keep leakage at zero)
+
+Run regression tests:
+
+```bash
+cd backend
+npm test
+```
+
+---
+
 ## 📂 Project Structure
 
 ```
