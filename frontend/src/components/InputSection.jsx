@@ -9,6 +9,8 @@ function InputSection({
   onAnalyze,
   onLookupPatient,
   isLoading,
+  isDatasetParsing,
+  uploadedDatasetRecordCount,
   file,
   canAnalyze,
   canLookupPatient,
@@ -91,13 +93,19 @@ function InputSection({
           type="button"
           className="secondary-button"
           onClick={onLookupPatient}
-          disabled={isLoading || !canLookupPatient}
+          disabled={isLoading || isDatasetParsing || !canLookupPatient}
         >
-          Lookup Patient History
+          {isDatasetParsing ? "Reading Dataset..." : "Lookup Patient History"}
         </button>
       </div>
 
-      {file ? <p className="upload-message">Selected: {file.name}</p> : null}
+      {file ? (
+        <p className="upload-message">
+          {uploadedDatasetRecordCount > 0
+            ? `Loaded ${uploadedDatasetRecordCount} patient profiles from ${file.name}`
+            : `Selected: ${file.name}`}
+        </p>
+      ) : null}
       {liveTranscript ? <p className="live-transcript">Listening: {liveTranscript}</p> : null}
       {!isSpeechSupported ? (
         <p className="speech-warning">

@@ -3,6 +3,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:5000";
 const TRIAGE_LIMIT = 8;
 
+function isJsonDatasetFile(file) {
+  if (!file) {
+    return false;
+  }
+
+  const fileName = String(file.name || "").toLowerCase();
+  return fileName.endsWith(".json") || file.type === "application/json";
+}
+
 function getSpeechRecognitionApi() {
   if (typeof window === "undefined") {
     return null;
@@ -81,10 +90,14 @@ function toPatientInsightsUiResult(payload) {
   const relatedDiagnoses = Array.isArray(payload?.related_diagnoses)
     ? payload.related_diagnoses
     : [];
+  const dataSource = payload?.data_source === "uploaded_dataset"
+    ? "uploaded dataset file"
+    : "default backend dataset";
   const patientIdLabel = patientHistory?.id || payload?.patient_id || "unknown";
   const explanation = [
     `Loaded history for patient ${patientIdLabel}.`,
     `Found ${relatedDiagnoses.length} related diagnoses from similar patient cases.`,
+    `History source: ${dataSource}.`,
   ];
 
   if (patientHistory?.type) {
@@ -104,6 +117,93 @@ function toPatientInsightsUiResult(payload) {
   };
 }
 
+function extractDatasetRecords(parsedPayload) {
+  if (Array.isArray(parsedPayload)) {
+    return parsedPayload;
+  }
+
+  if (Array.isArray(parsedPayload?.dataset)) {
+    return parsedPayload.dataset;
+  }
+
+  if (Array.isArray(parsedPayload?.records)) {
+    return parsedPayload.records;
+  }
+
+  if (Array.isArray(parsedPayload?.items)) {
+    return parsedPayload.items;
+  }
+
+  if (Array.isArray(parsedPayload?.dataset?.items)) {
+    return parsedPayload.dataset.items;
+  }
+
+  return [];
+}
+
+function normalizeUploadedDatasetRecords(rawRecords) {
+  return rawRecords
+    .filter((record) => record && typeof record === "object")
+    .map((record) => {
+      const idValue = record.id ?? record.patientId ?? record.patient_id;
+      const normalizedHistoryRecords = Array.isArray(record.records)
+        ? record.records
+          .filter((historyRecord) => historyRecord && typeof historyRecord === "object")
+          .map((historyRecord) => {
+            const normalizedCondition = typeof historyRecord.condition === "string"
+              ? historyRecord.condition.trim()
+              : typeof historyRecord.diagnosis === "string"
+                ? historyRecord.diagnosis.trim()
+                : "";
+            const normalizedType = typeof historyRecord.type === "string"
+              ? historyRecord.type.trim()
+              : "";
+            const normalizedSeverity = typeof historyRecord.severity === "string"
+              ? historyRecord.severity.trim()
+              : "";
+            const normalizedDate = historyRecord.date !== null && historyRecord.date !== undefined
+              ? String(historyRecord.date).trim()
+              : "";
+
+            if (!(normalizedCondition || normalizedType || normalizedSeverity || normalizedDate)) {
+              return null;
+            }
+
+            return {
+              condition: normalizedCondition || undefined,
+              type: normalizedType || undefined,
+              severity: normalizedSeverity || undefined,
+              date: normalizedDate || undefined,
+            };
+          })
+          .filter(Boolean)
+        : [];
+      const historyText = normalizedHistoryRecords
+        .map((historyRecord) => historyRecord.condition)
+        .filter(Boolean)
+        .slice(0, 8)
+        .join(", ");
+
+      return {
+        id: idValue === null || idValue === undefined ? "" : String(idValue).trim(),
+        type: typeof record.type === "string" ? record.type : undefined,
+        title: typeof record.title === "string" ? record.title : undefined,
+        text: typeof record.text === "string"
+          ? record.text
+          : typeof record.content === "string"
+            ? record.content
+            : historyText || undefined,
+        keywords: Array.isArray(record.keywords) ? record.keywords : undefined,
+        date: typeof record.date === "string" ? record.date : undefined,
+        diagnosis: typeof record.diagnosis === "string" ? record.diagnosis : undefined,
+        action: typeof record.action === "string" ? record.action : undefined,
+        severity: typeof record.severity === "string" ? record.severity : undefined,
+        records: normalizedHistoryRecords.length > 0 ? normalizedHistoryRecords : undefined,
+      };
+    })
+    .filter((record) => record.id);
+}
+
 function buildRecentCaseEntry({ diagnosis, severity, context }) {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -118,6 +218,7 @@ export function useTriage() {
   const [inputText, setInputText] = useState("");
   const [patientId, setPatientId] = useState("");
   const [file, setFile] = useState(null);
+  const [uploadedDatasetRecords, setUploadedDatasetRecords] = useState([]);
   const [status, setStatus] = useState("ready");
   const [result, setResult] = useState(null);
   const [recentCases, setRecentCases] = useState([]);
@@ -126,6 +227,7 @@ export function useTriage() {
   const [isListening, setIsListening] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState("");
   const [speechError, setSpeechError] = useState("");
+  const [isDatasetParsing, setIsDatasetParsing] = useState(false);
 
   const recognitionRef = useRef(null);
   const finalTranscriptRef = useRef("");
@@ -159,6 +261,48 @@ export function useTriage() {
       setStatus("ready");
     }
   }, []);
+
+  const parseUploadedDatasetFile = useCallback(async (targetFile) => {
+    const fileContent = await targetFile.text();
+    const parsedPayload = JSON.parse(fileContent);
+    const rawRecords = extractDatasetRecords(parsedPayload);
+    const normalizedRecords = normalizeUploadedDatasetRecords(rawRecords);
+
+    if (normalizedRecords.length === 0) {
+      throw new Error("JSON dataset must include at least one patient record with an id.");
+    }
+
+    return normalizedRecords;
+  }, []);
+
+  const handleFileChange = useCallback(async (nextFile) => {
+    setFile(nextFile || null);
+    setUploadedDatasetRecords([]);
+    setIsDatasetParsing(false);
+
+    if (!nextFile) {
+      return;
+    }
+
+    if (!isJsonDatasetFile(nextFile)) {
+      return;
+    }
+
+    setIsDatasetParsing(true);
+
+    try {
+      const normalizedRecords = await parseUploadedDatasetFile(nextFile);
+      setUploadedDatasetRecords(normalizedRecords);
+      setErrorMessage("");
+      setStatus("ready");
+    } catch (error) {
+      setUploadedDatasetRecords([]);
+      setStatus("error");
+      setErrorMessage(error?.message || "Unable to parse uploaded JSON dataset file.");
+    } finally {
+      setIsDatasetParsing(false);
+    }
+  }, [parseUploadedDatasetFile]);
 
   useEffect(() => {
     if (!SpeechRecognitionApi) {
@@ -310,20 +454,32 @@ export function useTriage() {
   }, [canAnalyze, inputMode, inputText, pushRecentCase, status]);
 
   const lookupPatientHistory = useCallback(async () => {
-    if (!canLookupPatient || status === "loading") {
+    if (!canLookupPatient || status === "loading" || isDatasetParsing) {
       return;
     }
 
     const normalizedPatientId = patientId.trim().toUpperCase();
-    const requestBody = {
-      patientId: normalizedPatientId,
-      limit: TRIAGE_LIMIT,
-    };
+    let datasetRecordsForRequest = uploadedDatasetRecords;
 
     setStatus("loading");
     setErrorMessage("");
 
     try {
+      if (isJsonDatasetFile(file) && datasetRecordsForRequest.length === 0) {
+        setIsDatasetParsing(true);
+        datasetRecordsForRequest = await parseUploadedDatasetFile(file);
+        setUploadedDatasetRecords(datasetRecordsForRequest);
+        setIsDatasetParsing(false);
+      }
+
+      const requestBody = {
+        patientId: normalizedPatientId,
+        limit: TRIAGE_LIMIT,
+        ...(datasetRecordsForRequest.length > 0
+          ? { dataset: datasetRecordsForRequest }
+          : {}),
+      };
+
       const response = await fetch(`${API_BASE_URL}/patients/insights`, {
         method: "POST",
         headers: {
@@ -347,11 +503,21 @@ export function useTriage() {
       }));
       setStatus("ready");
     } catch (error) {
+      setIsDatasetParsing(false);
       setResult(null);
       setStatus("error");
       setErrorMessage(error?.message || "Unable to load patient history.");
     }
-  }, [canLookupPatient, patientId, pushRecentCase, status]);
+  }, [
+    canLookupPatient,
+    file,
+    isDatasetParsing,
+    parseUploadedDatasetFile,
+    patientId,
+    pushRecentCase,
+    status,
+    uploadedDatasetRecords,
+  ]);
 
   return {
     inputText,
@@ -360,6 +526,8 @@ export function useTriage() {
     status,
     result,
     recentCases,
+    isDatasetParsing,
+    uploadedDatasetRecordCount: uploadedDatasetRecords.length,
     canAnalyze,
     canLookupPatient,
     isListening,
@@ -368,7 +536,7 @@ export function useTriage() {
     speechError,
     inputMode,
     errorMessage,
-    setFile,
+    handleFileChange,
     handleInputChange,
     handlePatientIdChange,
     startVoiceCapture,

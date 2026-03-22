@@ -114,6 +114,7 @@ const INGEST_DEFAULT_CHUNK_SIZE_WORDS = parsePositiveInteger(process.env.INGEST_
 const INGEST_DEFAULT_CHUNK_OVERLAP_WORDS = parsePositiveInteger(process.env.INGEST_DEFAULT_CHUNK_OVERLAP_WORDS, 35);
 const INGEST_MAX_ITEMS_PER_REQUEST = parsePositiveInteger(process.env.INGEST_MAX_ITEMS_PER_REQUEST, 50);
 const INGEST_MAX_TEXT_CHARS = parsePositiveInteger(process.env.INGEST_MAX_TEXT_CHARS, 3000000);
+const PATIENT_INSIGHTS_MAX_RECORDS = parsePositiveInteger(process.env.PATIENT_INSIGHTS_MAX_RECORDS, 5000);
 const HYBRID_VECTOR_DIMENSIONS = parsePositiveInteger(process.env.HYBRID_VECTOR_DIMENSIONS, 256);
 const INGEST_CHUNK_STORE_PATH = process.env.INGEST_CHUNK_STORE_PATH
 	? path.resolve(process.cwd(), process.env.INGEST_CHUNK_STORE_PATH)
@@ -1272,10 +1273,280 @@ function validatePatientInsightsPayload(payload) {
 	const rawPatientId = typeof payload?.patientId === "string"
 		? payload.patientId
 		: payload?.patient_id;
+	const rawDatasetRecords = extractPatientInsightRawRecords(payload);
+
+	if (rawDatasetRecords.length > PATIENT_INSIGHTS_MAX_RECORDS) {
+		throw new HttpError(
+			400,
+			`dataset exceeds max record count of ${PATIENT_INSIGHTS_MAX_RECORDS}`
+		);
+	}
 
 	return {
 		patientId: validatePatientId(rawPatientId),
-		limit: parseLimit(payload?.limit)
+		limit: parseLimit(payload?.limit),
+		datasetRecords: rawDatasetRecords.map((record, index) => {
+			return normalizePatientInsightRecord(record, index);
+		})
+	};
+}
+
+function extractPatientInsightRawRecords(payload) {
+	if (Array.isArray(payload?.dataset)) {
+		return payload.dataset;
+	}
+
+	if (Array.isArray(payload?.records)) {
+		return payload.records;
+	}
+
+	if (Array.isArray(payload?.items)) {
+		return payload.items;
+	}
+
+	if (Array.isArray(payload?.dataset?.items)) {
+		return payload.dataset.items;
+	}
+
+	if (Array.isArray(payload?.records?.items)) {
+		return payload.records.items;
+	}
+
+	return [];
+}
+
+function normalizeInsightSeverity(severityValue) {
+	if (typeof severityValue !== "string") {
+		return null;
+	}
+
+	const normalized = severityValue.trim().toUpperCase();
+
+	if (["HIGH", "MEDIUM", "LOW"].includes(normalized)) {
+		return normalized;
+	}
+
+	if (normalized === "CRITICAL") {
+		return "HIGH";
+	}
+
+	if (normalized === "MODERATE") {
+		return "MEDIUM";
+	}
+
+	return null;
+}
+
+function insightSeverityRank(severityValue) {
+	const normalized = normalizeInsightSeverity(severityValue);
+
+	if (normalized === "HIGH") {
+		return 3;
+	}
+
+	if (normalized === "MEDIUM") {
+		return 2;
+	}
+
+	if (normalized === "LOW") {
+		return 1;
+	}
+
+	return 0;
+}
+
+function normalizePatientHistoryRecord(rawHistoryRecord) {
+	if (!rawHistoryRecord || typeof rawHistoryRecord !== "object") {
+		return null;
+	}
+
+	const condition = normalizeOptionalString(
+		rawHistoryRecord.condition
+			|| rawHistoryRecord.diagnosis
+			|| rawHistoryRecord.text
+			|| rawHistoryRecord.title
+	);
+	const type = normalizeOptionalString(rawHistoryRecord.type);
+	const severity = normalizeInsightSeverity(rawHistoryRecord.severity);
+	const date = rawHistoryRecord.date !== null && rawHistoryRecord.date !== undefined
+		? normalizeOptionalString(String(rawHistoryRecord.date))
+		: null;
+
+	if (!(condition || type || severity || date)) {
+		return null;
+	}
+
+	return {
+		condition,
+		type,
+		severity,
+		date
+	};
+}
+
+function pickDominantType(historyRecords) {
+	const typeCounts = new Map();
+
+	historyRecords.forEach((historyRecord) => {
+		if (!historyRecord.type) {
+			return;
+		}
+
+		const normalizedType = historyRecord.type.toLowerCase();
+		typeCounts.set(normalizedType, (typeCounts.get(normalizedType) || 0) + 1);
+	});
+
+	if (typeCounts.size === 0) {
+		return null;
+	}
+
+	const [dominantType] = [...typeCounts.entries()].sort((left, right) => {
+		if (right[1] !== left[1]) {
+			return right[1] - left[1];
+		}
+
+		return left[0].localeCompare(right[0]);
+	})[0];
+
+	return dominantType;
+}
+
+function pickLatestHistoryDate(historyRecords) {
+	const datedRecords = historyRecords.filter((historyRecord) => {
+		return historyRecord.date && toEpoch(historyRecord.date) > 0;
+	});
+
+	if (datedRecords.length === 0) {
+		return null;
+	}
+
+	const sortedByDate = [...datedRecords].sort((left, right) => {
+		return toEpoch(right.date) - toEpoch(left.date);
+	});
+
+	return sortedByDate[0].date;
+}
+
+function pickDerivedSeverity(historyRecords) {
+	const rankedHistory = [...historyRecords].sort((left, right) => {
+		return insightSeverityRank(right.severity) - insightSeverityRank(left.severity);
+	});
+
+	return rankedHistory[0]?.severity || null;
+}
+
+function buildHistorySummaryText(historyRecords) {
+	if (!Array.isArray(historyRecords) || historyRecords.length === 0) {
+		return "";
+	}
+
+	return historyRecords
+		.slice(0, 8)
+		.map((historyRecord) => {
+			const condition = historyRecord.condition || "unspecified finding";
+			const parts = [historyRecord.type, historyRecord.severity, historyRecord.date]
+				.filter((value) => typeof value === "string" && value.trim());
+
+			if (parts.length === 0) {
+				return condition;
+			}
+
+			return `${condition} (${parts.join(", ")})`;
+		})
+		.join("; ");
+}
+
+function deriveDiagnosisFromHistory(historyRecords) {
+	if (!Array.isArray(historyRecords) || historyRecords.length === 0) {
+		return null;
+	}
+
+	const sortedHistory = [...historyRecords].sort((left, right) => {
+		const severityDelta = insightSeverityRank(right.severity) - insightSeverityRank(left.severity);
+
+		if (severityDelta !== 0) {
+			return severityDelta;
+		}
+
+		return toEpoch(right.date) - toEpoch(left.date);
+	});
+
+	const topCondition = sortedHistory[0]?.condition;
+
+	if (!topCondition) {
+		return null;
+	}
+
+	return `History suggests ${topCondition}`;
+}
+
+function normalizePatientInsightRecord(rawRecord, index) {
+	if (!rawRecord || typeof rawRecord !== "object") {
+		throw new HttpError(400, `dataset[${index}] must be an object`);
+	}
+
+	const rawIdValue = rawRecord.id ?? rawRecord.patientId ?? rawRecord.patient_id;
+
+	if (rawIdValue === null || rawIdValue === undefined) {
+		throw new HttpError(400, `dataset[${index}].id is required`);
+	}
+
+	const normalizedId = validatePatientId(String(rawIdValue));
+	const keywords = Array.isArray(rawRecord.keywords)
+		? rawRecord.keywords
+			.map((keyword) => String(keyword || "").trim())
+			.filter(Boolean)
+		: [];
+	const historyRecords = Array.isArray(rawRecord.records)
+		? rawRecord.records.map((rawHistoryRecord) => {
+			return normalizePatientHistoryRecord(rawHistoryRecord);
+		}).filter(Boolean)
+		: [];
+
+	const textCandidates = [
+		rawRecord.text,
+		rawRecord.content,
+		rawRecord.notes,
+		rawRecord.history,
+		rawRecord.patient_history
+	];
+	let normalizedText = "";
+
+	for (const candidateText of textCandidates) {
+		if (typeof candidateText === "string" && candidateText.trim()) {
+			normalizedText = candidateText.trim();
+			break;
+		}
+	}
+
+	const derivedType = pickDominantType(historyRecords);
+	const derivedDate = pickLatestHistoryDate(historyRecords);
+	const derivedSeverity = pickDerivedSeverity(historyRecords);
+	const derivedDiagnosis = deriveDiagnosisFromHistory(historyRecords);
+	const historySummary = buildHistorySummaryText(historyRecords);
+	const historyKeywords = historyRecords.flatMap((historyRecord) => {
+		const conditionTokens = tokenize(historyRecord.condition || "");
+		const typeTokens = tokenize(historyRecord.type || "");
+
+		return [...conditionTokens, ...typeTokens];
+	});
+	const mergedKeywords = [...new Set([...keywords.map((keyword) => keyword.toLowerCase()), ...historyKeywords])]
+		.slice(0, 128);
+
+	return {
+		id: normalizedId,
+		type: normalizeOptionalString(rawRecord.type) || derivedType || "general",
+		title: normalizeOptionalString(rawRecord.title) || "",
+		text: normalizedText || historySummary,
+		keywords: mergedKeywords,
+		date: normalizeOptionalString(rawRecord.date) || derivedDate,
+		diagnosis: normalizeOptionalString(rawRecord.diagnosis) || derivedDiagnosis,
+		action: normalizeOptionalString(rawRecord.action)
+			|| (historyRecords.length > 0
+				? "Review longitudinal history and correlate with current symptoms before final triage decision."
+				: null),
+		severity: normalizeInsightSeverity(rawRecord.severity) || derivedSeverity,
+		history_records: historyRecords
 	};
 }
 
@@ -1285,8 +1556,15 @@ function buildPatientSearchQuery(doc) {
 	}
 
 	const keywords = Array.isArray(doc.keywords) ? doc.keywords : [];
+	const historyTerms = Array.isArray(doc.history_records)
+		? doc.history_records.flatMap((historyRecord) => {
+			return [historyRecord?.condition, historyRecord?.type].filter((value) => {
+				return typeof value === "string" && value.trim();
+			});
+		})
+		: [];
 
-	return [doc.title, doc.text, ...keywords, doc.type]
+	return [doc.title, doc.text, ...keywords, doc.type, ...historyTerms]
 		.filter((part) => typeof part === "string" && part.trim())
 		.join(" ");
 }
@@ -1304,8 +1582,23 @@ function toRelatedDiagnosisDoc(doc, score = null) {
 	};
 }
 
-function buildRelatedDiagnosisList(patientDoc, limit) {
+function buildRelatedDiagnosisList(patientDoc, limit, sourceRecords = null) {
 	const safeLimit = Math.max(1, limit);
+	const hasCustomSource = Array.isArray(sourceRecords) && sourceRecords.length > 0;
+
+	if (hasCustomSource) {
+		const searchQuery = buildPatientSearchQuery(patientDoc);
+		const candidateDocs = sourceRecords.filter((doc) => {
+			return doc && doc.id !== patientDoc.id && doc.diagnosis;
+		});
+		const rankedDocs = rankDocsByRelevance(searchQuery, candidateDocs);
+		const queryTokens = tokenize(searchQuery);
+
+		return rankedDocs.slice(0, safeLimit).map((doc) => {
+			return toRelatedDiagnosisDoc(doc, computeRelevanceScore(queryTokens, doc));
+		});
+	}
+
 	const candidatePoolSize = Math.min(MAX_LIMIT, Math.max(safeLimit * 4, 16));
 	const searchQuery = buildPatientSearchQuery(patientDoc);
 	const relatedById = new Map();
@@ -1861,6 +2154,7 @@ function toClientDoc(doc) {
 		diagnosis: doc.diagnosis || null,
 		action: doc.action || null,
 		severity: doc.severity || null,
+		history_records: Array.isArray(doc.history_records) ? doc.history_records : [],
 		parent_id: doc.parent_id || null,
 		chunk_index: Number.isInteger(doc.chunk_index) ? doc.chunk_index : null,
 		chunk_count: Number.isInteger(doc.chunk_count) ? doc.chunk_count : null,
@@ -1985,19 +2279,34 @@ async function handleRetrieveRequest(req, res) {
 
 function handlePatientInsightsRequest(req, res) {
 	const startedAt = Date.now();
-	const { patientId, limit } = validatePatientInsightsPayload(req.body);
-	const patientDoc = CASE_BY_NORMALIZED_ID.get(patientId);
+	const { patientId, limit, datasetRecords } = validatePatientInsightsPayload(req.body);
+	const usingUploadedDataset = datasetRecords.length > 0;
+	const sourceRecords = usingUploadedDataset ? datasetRecords : dataset;
+	const sourceCaseMap = usingUploadedDataset
+		? new Map(
+			sourceRecords
+				.filter((doc) => doc && doc.id)
+				.map((doc) => [String(doc.id).trim().toUpperCase(), doc])
+		)
+		: CASE_BY_NORMALIZED_ID;
+	const patientDoc = sourceCaseMap.get(patientId);
 
 	if (!patientDoc) {
 		throw new HttpError(404, `patientId '${patientId}' was not found`);
 	}
 
-	const relatedDiagnoses = buildRelatedDiagnosisList(patientDoc, limit);
+	const relatedDiagnoses = buildRelatedDiagnosisList(
+		patientDoc,
+		limit,
+		usingUploadedDataset ? sourceRecords : null
+	);
 	const latencyMs = Date.now() - startedAt;
 
 	return res.json({
 		request_id: req.requestId,
 		patient_id: patientId,
+		data_source: usingUploadedDataset ? "uploaded_dataset" : "default_dataset",
+		source_record_count: sourceRecords.length,
 		related_count: relatedDiagnoses.length,
 		latency_ms: latencyMs,
 		patient_history: toClientDoc(patientDoc),
@@ -2298,7 +2607,15 @@ app.use((req, res) => {
 });
 
 app.use((error, req, res, _next) => {
-	const statusCode = Number.isInteger(error.statusCode) ? error.statusCode : 500;
+	const bodyTooLarge = error?.type === "entity.too.large" || error?.status === 413;
+	const statusCode = bodyTooLarge
+		? 413
+		: Number.isInteger(error.statusCode)
+			? error.statusCode
+			: 500;
+	const clientMessage = bodyTooLarge
+		? `Payload too large. Increase API_JSON_LIMIT (current: ${API_JSON_LIMIT}) or upload a smaller dataset.`
+		: error.message;
 
 	if (statusCode >= 500) {
 		log("error", "Unhandled server error", {
@@ -2312,7 +2629,7 @@ app.use((error, req, res, _next) => {
 
 	res.status(statusCode).json({
 		request_id: req.requestId,
-		error: statusCode === 500 ? "Internal server error" : error.message
+		error: statusCode === 500 ? "Internal server error" : clientMessage
 	});
 });
 

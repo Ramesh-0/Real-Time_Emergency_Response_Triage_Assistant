@@ -13,10 +13,12 @@ function App() {
     patientId,
     handlePatientIdChange,
     file,
-    setFile,
+    handleFileChange,
     status,
     result,
     recentCases,
+    isDatasetParsing,
+    uploadedDatasetRecordCount,
     canAnalyze,
     canLookupPatient,
     isListening,
@@ -55,12 +57,14 @@ function App() {
               onInputChange={handleInputChange}
               patientId={patientId}
               onPatientIdChange={handlePatientIdChange}
-              onFileChange={setFile}
+              onFileChange={handleFileChange}
               onStartVoiceCapture={startVoiceCapture}
               onStopVoiceCapture={stopVoiceCapture}
               onAnalyze={analyzeCase}
               onLookupPatient={lookupPatientHistory}
               isLoading={status === "loading"}
+              isDatasetParsing={isDatasetParsing}
+              uploadedDatasetRecordCount={uploadedDatasetRecordCount}
               file={file}
               canAnalyze={canAnalyze}
               canLookupPatient={canLookupPatient}
