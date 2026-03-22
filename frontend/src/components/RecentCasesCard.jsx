@@ -20,8 +20,8 @@ function RecentCasesCard({ cases = [] }) {
         <p className="subtle">No recent cases yet. Run an analysis to populate this list.</p>
       ) : (
         <ul className="recent-cases-list">
-          {cases.map((item) => (
-            <li key={item.id} className="recent-cases-item">
+          {cases.map((item, index) => (
+            <li key={`${item.id || "recent-case"}-${index}`} className="recent-cases-item">
               <div className="recent-case-main">
                 <p className="recent-case-title">{item.diagnosis || "Unknown diagnosis"}</p>
                 <p className="recent-case-context">{item.context || "No context"}</p>
