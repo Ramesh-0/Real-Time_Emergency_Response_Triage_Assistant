@@ -1,13 +1,17 @@
 function InputSection({
   inputText,
   onInputChange,
+  patientId,
+  onPatientIdChange,
   onFileChange,
   onStartVoiceCapture,
   onStopVoiceCapture,
   onAnalyze,
+  onLookupPatient,
   isLoading,
   file,
   canAnalyze,
+  canLookupPatient,
   isListening,
   isSpeechSupported,
   liveTranscript,
@@ -44,25 +48,52 @@ function InputSection({
       </div>
       <p className="char-count">{inputText.length}/{maxChars} characters</p>
 
+      <label htmlFor="patient-id-input" className="field-label">
+        Patient ID
+      </label>
+      <input
+        id="patient-id-input"
+        className="patient-id-input"
+        type="text"
+        placeholder="Enter patient ID (example: C-001)"
+        value={patientId}
+        onChange={(event) => onPatientIdChange(event.target.value)}
+      />
+
+      <div className="voice-capture-wrap">
+        <button
+          type="button"
+          className={`voice-capture-button ${isListening ? "recording" : ""}`}
+          onClick={isListening ? onStopVoiceCapture : onStartVoiceCapture}
+          disabled={isLoading || !isSpeechSupported}
+          title={isSpeechSupported ? "Capture speech transcript" : "Browser speech API not available"}
+          aria-label={isListening ? "Stop voice capture" : "Start voice capture"}
+        >
+          <span className="voice-capture-icon" aria-hidden="true">🎤</span>
+        </button>
+        <p className="voice-capture-label">
+          {isListening ? "Listening... tap mic to stop" : "Tap mic to start voice capture"}
+        </p>
+      </div>
+
       <div className="action-row">
         <label className="upload-wrap" htmlFor="triage-file">
           <span>Upload Protocol / Case File</span>
           <input
             id="triage-file"
             type="file"
-            accept=".txt,.md,.pdf,.docx"
+            accept=".txt,.md,.pdf,.docx,.json"
             onChange={(event) => onFileChange(event.target.files?.[0] || null)}
           />
         </label>
 
         <button
           type="button"
-          className={`secondary-button ${isListening ? "recording" : ""}`}
-          onClick={isListening ? onStopVoiceCapture : onStartVoiceCapture}
-          disabled={isLoading || !isSpeechSupported}
-          title={isSpeechSupported ? "Capture speech transcript" : "Browser speech API not available"}
+          className="secondary-button"
+          onClick={onLookupPatient}
+          disabled={isLoading || !canLookupPatient}
         >
-          {isListening ? "Stop Voice Capture" : "Start Voice Capture"}
+          Lookup Patient History
         </button>
       </div>
 

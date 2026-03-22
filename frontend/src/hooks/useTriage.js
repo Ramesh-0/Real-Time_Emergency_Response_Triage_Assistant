@@ -64,20 +64,63 @@ function buildExplanation(payload) {
 
 function toUiResult(payload) {
   return {
+    mode: "triage",
     diagnosis: payload?.result?.diagnosis || "Needs clinician triage review",
     action:
       payload?.result?.action ||
       "No action recommendation was returned. Escalate to clinician review.",
     severity: payload?.result?.severity || "MEDIUM",
     explanation: buildExplanation(payload),
+    patientHistory: null,
+    relatedDiagnoses: [],
+  };
+}
+
+function toPatientInsightsUiResult(payload) {
+  const patientHistory = payload?.patient_history || null;
+  const relatedDiagnoses = Array.isArray(payload?.related_diagnoses)
+    ? payload.related_diagnoses
+    : [];
+  const patientIdLabel = patientHistory?.id || payload?.patient_id || "unknown";
+  const explanation = [
+    `Loaded history for patient ${patientIdLabel}.`,
+    `Found ${relatedDiagnoses.length} related diagnoses from similar patient cases.`,
+  ];
+
+  if (patientHistory?.type) {
+    explanation.push(`Primary case type: ${patientHistory.type}.`);
+  }
+
+  return {
+    mode: "patient-insights",
+    diagnosis: patientHistory?.diagnosis || "No diagnosis available for this patient.",
+    action:
+      patientHistory?.action ||
+      "No action recommendation was found for this patient history.",
+    severity: patientHistory?.severity || "MEDIUM",
+    explanation,
+    patientHistory,
+    relatedDiagnoses,
+  };
+}
+
+function buildRecentCaseEntry({ diagnosis, severity, context }) {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    diagnosis: diagnosis || "Needs clinician triage review",
+    severity: (severity || "MEDIUM").toUpperCase(),
+    context: context || "",
+    createdAt: new Date().toISOString(),
   };
 }
 
 export function useTriage() {
   const [inputText, setInputText] = useState("");
+  const [patientId, setPatientId] = useState("");
   const [file, setFile] = useState(null);
   const [status, setStatus] = useState("ready");
   const [result, setResult] = useState(null);
+  const [recentCases, setRecentCases] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [inputMode, setInputMode] = useState("text");
   const [isListening, setIsListening] = useState(false);
@@ -94,9 +137,22 @@ export function useTriage() {
     return Boolean(inputText.trim());
   }, [inputText]);
 
+  const canLookupPatient = useMemo(() => {
+    return Boolean(patientId.trim());
+  }, [patientId]);
+
   const handleInputChange = useCallback((value) => {
     setInputText(value);
     setInputMode("text");
+    setSpeechError("");
+
+    if (value.trim()) {
+      setStatus("ready");
+    }
+  }, []);
+
+  const handlePatientIdChange = useCallback((value) => {
+    setPatientId(value);
     setSpeechError("");
 
     if (value.trim()) {
@@ -198,6 +254,16 @@ export function useTriage() {
     recognitionRef.current.stop();
   }, [isListening]);
 
+  const pushRecentCase = useCallback((entry) => {
+    setRecentCases((previous) => {
+      const deduped = previous.filter((item) => {
+        return !(item.diagnosis === entry.diagnosis && item.context === entry.context);
+      });
+
+      return [entry, ...deduped].slice(0, 6);
+    });
+  }, []);
+
   const analyzeCase = useCallback(async () => {
     if (!canAnalyze || status === "loading") {
       return;
@@ -228,21 +294,74 @@ export function useTriage() {
         throw new Error(payload?.error || `Request failed with status ${response.status}`);
       }
 
-      setResult(toUiResult(payload));
+      const uiResult = toUiResult(payload);
+      setResult(uiResult);
+      pushRecentCase(buildRecentCaseEntry({
+        diagnosis: uiResult.diagnosis,
+        severity: uiResult.severity,
+        context: normalizedQuery
+      }));
       setStatus("ready");
     } catch (error) {
       setResult(null);
       setStatus("error");
       setErrorMessage(error?.message || "Unable to analyze triage request.");
     }
-  }, [canAnalyze, inputMode, inputText, status]);
+  }, [canAnalyze, inputMode, inputText, pushRecentCase, status]);
+
+  const lookupPatientHistory = useCallback(async () => {
+    if (!canLookupPatient || status === "loading") {
+      return;
+    }
+
+    const normalizedPatientId = patientId.trim().toUpperCase();
+    const requestBody = {
+      patientId: normalizedPatientId,
+      limit: TRIAGE_LIMIT,
+    };
+
+    setStatus("loading");
+    setErrorMessage("");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/patients/insights`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(payload?.error || `Request failed with status ${response.status}`);
+      }
+
+      const uiResult = toPatientInsightsUiResult(payload);
+      setResult(uiResult);
+      pushRecentCase(buildRecentCaseEntry({
+        diagnosis: uiResult.diagnosis,
+        severity: uiResult.severity,
+        context: `Patient ${normalizedPatientId}`
+      }));
+      setStatus("ready");
+    } catch (error) {
+      setResult(null);
+      setStatus("error");
+      setErrorMessage(error?.message || "Unable to load patient history.");
+    }
+  }, [canLookupPatient, patientId, pushRecentCase, status]);
 
   return {
     inputText,
+    patientId,
     file,
     status,
     result,
+    recentCases,
     canAnalyze,
+    canLookupPatient,
     isListening,
     isSpeechSupported,
     liveTranscript,
@@ -251,8 +370,10 @@ export function useTriage() {
     errorMessage,
     setFile,
     handleInputChange,
+    handlePatientIdChange,
     startVoiceCapture,
     stopVoiceCapture,
     analyzeCase,
+    lookupPatientHistory,
   };
 }

@@ -302,6 +302,10 @@ const CASE_BY_ID = new Map(
 		.map((doc) => [doc.id, doc])
 );
 
+const CASE_BY_NORMALIZED_ID = new Map(
+	[...CASE_BY_ID.entries()].map(([caseId, doc]) => [String(caseId).trim().toUpperCase(), doc])
+);
+
 function toBaseIndexRecord(doc) {
 	return {
 		id: doc.id,
@@ -1246,6 +1250,116 @@ function validateVoiceTriagePayload(payload) {
 	};
 }
 
+function validatePatientId(patientIdValue) {
+	if (typeof patientIdValue !== "string") {
+		throw new HttpError(400, "patientId is required and must be a string");
+	}
+
+	const normalizedPatientId = patientIdValue.trim().toUpperCase();
+
+	if (!normalizedPatientId) {
+		throw new HttpError(400, "patientId cannot be empty");
+	}
+
+	if (!/^[A-Z0-9_-]{2,64}$/.test(normalizedPatientId)) {
+		throw new HttpError(400, "patientId format is invalid");
+	}
+
+	return normalizedPatientId;
+}
+
+function validatePatientInsightsPayload(payload) {
+	const rawPatientId = typeof payload?.patientId === "string"
+		? payload.patientId
+		: payload?.patient_id;
+
+	return {
+		patientId: validatePatientId(rawPatientId),
+		limit: parseLimit(payload?.limit)
+	};
+}
+
+function buildPatientSearchQuery(doc) {
+	if (!doc || typeof doc !== "object") {
+		return "";
+	}
+
+	const keywords = Array.isArray(doc.keywords) ? doc.keywords : [];
+
+	return [doc.title, doc.text, ...keywords, doc.type]
+		.filter((part) => typeof part === "string" && part.trim())
+		.join(" ");
+}
+
+function toRelatedDiagnosisDoc(doc, score = null) {
+	return {
+		id: doc.id || null,
+		type: doc.type || "unknown",
+		title: doc.title || "",
+		date: doc.date || null,
+		diagnosis: doc.diagnosis || null,
+		action: doc.action || null,
+		severity: doc.severity || null,
+		hybrid_score: Number.isFinite(score) ? Number(score.toFixed(4)) : null
+	};
+}
+
+function buildRelatedDiagnosisList(patientDoc, limit) {
+	const safeLimit = Math.max(1, limit);
+	const candidatePoolSize = Math.min(MAX_LIMIT, Math.max(safeLimit * 4, 16));
+	const searchQuery = buildPatientSearchQuery(patientDoc);
+	const relatedById = new Map();
+
+	const tryAddDoc = (doc, score = null) => {
+		if (!doc || doc.id === patientDoc.id || !doc.diagnosis) {
+			return;
+		}
+
+		if (!relatedById.has(doc.id)) {
+			relatedById.set(doc.id, toRelatedDiagnosisDoc(doc, score));
+		}
+	};
+
+	if (searchQuery) {
+		const typedSearchOptions = {
+			limit: candidatePoolSize,
+			candidatePool: Math.max(candidatePoolSize * 8, 200)
+		};
+
+		if (typeof patientDoc.type === "string" && patientDoc.type.trim()) {
+			typedSearchOptions.filters = { type: patientDoc.type };
+		}
+
+		const typedHits = hybridIndex.search(searchQuery, typedSearchOptions);
+		typedHits.forEach((hit) => {
+			tryAddDoc(hit.doc, hit.score);
+		});
+
+		if (relatedById.size < safeLimit) {
+			const globalHits = hybridIndex.search(searchQuery, {
+				limit: candidatePoolSize,
+				candidatePool: Math.max(candidatePoolSize * 8, 200)
+			});
+
+			globalHits.forEach((hit) => {
+				tryAddDoc(hit.doc, hit.score);
+			});
+		}
+	}
+
+	if (relatedById.size < safeLimit) {
+		const fallbackDocs = dataset
+			.filter((doc) => doc && doc.id !== patientDoc.id && doc.diagnosis)
+			.sort((left, right) => toEpoch(right.date) - toEpoch(left.date));
+
+		fallbackDocs.forEach((doc) => {
+			tryAddDoc(doc);
+		});
+	}
+
+	return [...relatedById.values()].slice(0, safeLimit);
+}
+
 function normalizeOptionalString(value) {
 	if (typeof value !== "string") {
 		return null;
@@ -1869,6 +1983,28 @@ async function handleRetrieveRequest(req, res) {
 	});
 }
 
+function handlePatientInsightsRequest(req, res) {
+	const startedAt = Date.now();
+	const { patientId, limit } = validatePatientInsightsPayload(req.body);
+	const patientDoc = CASE_BY_NORMALIZED_ID.get(patientId);
+
+	if (!patientDoc) {
+		throw new HttpError(404, `patientId '${patientId}' was not found`);
+	}
+
+	const relatedDiagnoses = buildRelatedDiagnosisList(patientDoc, limit);
+	const latencyMs = Date.now() - startedAt;
+
+	return res.json({
+		request_id: req.requestId,
+		patient_id: patientId,
+		related_count: relatedDiagnoses.length,
+		latency_ms: latencyMs,
+		patient_history: toClientDoc(patientDoc),
+		related_diagnoses: relatedDiagnoses
+	});
+}
+
 async function handleChunkSearchRequest(req, res) {
 	const startedAt = Date.now();
 	const { query, limit, filters } = validateChunkSearchPayload(req.body);
@@ -2128,6 +2264,7 @@ app.get("/", (req, res) => {
 			"GET /observability/dashboard",
 			"GET /observability/alerts",
 			"GET /observability/dashboard.html",
+			"POST /patients/insights",
 			"POST /retrieve",
 			"POST /search/chunks",
 			"POST /ingest/unstructured",
@@ -2146,6 +2283,7 @@ app.get("/index/stats", handleIndexStatsRequest);
 app.get("/observability/dashboard", handleObservabilityDashboardRequest);
 app.get("/observability/alerts", handleObservabilityAlertsRequest);
 app.get("/observability/dashboard.html", handleObservabilityDashboardHtmlRequest);
+app.post("/patients/insights", asyncHandler(handlePatientInsightsRequest));
 app.post("/retrieve", asyncHandler(handleRetrieveRequest));
 app.post("/search/chunks", asyncHandler(handleChunkSearchRequest));
 app.post("/ingest/unstructured", asyncHandler(handleUnstructuredIngestRequest));

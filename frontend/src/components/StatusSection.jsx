@@ -4,7 +4,7 @@ function StatusSection({ status, message }) {
       <section className="card status-section loading">
         <div className="loader">
           <span className="spinner" aria-hidden="true" />
-          <p>🔄 Analyzing patient data...</p>
+          <p>Processing request...</p>
         </div>
       </section>
     );

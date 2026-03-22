@@ -3,7 +3,6 @@ import InputSection from "./components/InputSection";
 import OutputSection from "./components/OutputSection";
 import RecentCasesCard from "./components/RecentCasesCard";
 import StatusSection from "./components/StatusSection";
-import SystemStatusCard from "./components/SystemStatusCard";
 import { useTriage } from "./hooks/useTriage";
 import { motion } from "framer-motion";
 
@@ -11,11 +10,15 @@ function App() {
   const {
     inputText,
     handleInputChange,
+    patientId,
+    handlePatientIdChange,
     file,
     setFile,
     status,
     result,
+    recentCases,
     canAnalyze,
+    canLookupPatient,
     isListening,
     isSpeechSupported,
     liveTranscript,
@@ -25,6 +28,7 @@ function App() {
     startVoiceCapture,
     stopVoiceCapture,
     analyzeCase,
+    lookupPatientHistory,
   } = useTriage();
 
   return (
@@ -49,13 +53,17 @@ function App() {
             <InputSection
               inputText={inputText}
               onInputChange={handleInputChange}
+              patientId={patientId}
+              onPatientIdChange={handlePatientIdChange}
               onFileChange={setFile}
               onStartVoiceCapture={startVoiceCapture}
               onStopVoiceCapture={stopVoiceCapture}
               onAnalyze={analyzeCase}
+              onLookupPatient={lookupPatientHistory}
               isLoading={status === "loading"}
               file={file}
               canAnalyze={canAnalyze}
+              canLookupPatient={canLookupPatient}
               isListening={isListening}
               isSpeechSupported={isSpeechSupported}
               liveTranscript={liveTranscript}
@@ -63,8 +71,7 @@ function App() {
               inputMode={inputMode}
             />
             <StatusSection status={status} message={errorMessage} />
-            <RecentCasesCard />
-            <SystemStatusCard />
+            <RecentCasesCard cases={recentCases} />
           </motion.div>
 
           <motion.div

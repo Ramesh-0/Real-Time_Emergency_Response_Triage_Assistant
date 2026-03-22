@@ -71,7 +71,8 @@ body {
 
 .main-grid {
   display: grid;
-  grid-template-columns: 0.95fr 1.05fr;
+  grid-template-columns: minmax(340px, 460px) minmax(0, 1fr);
+  align-items: start;
   gap: 20px;
   margin-top: 20px;
 }
@@ -81,6 +82,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  min-width: 0;
 }
 
 .card {
@@ -94,7 +96,7 @@ body {
 }
 
 .card:hover {
-  transform: translateY(-5px) scale(1.01);
+  border-color: rgba(56, 189, 248, 0.35);
 }
 
 .header {
@@ -181,10 +183,24 @@ textarea {
   color: var(--text);
 }
 
+input {
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--card);
+  border: 1px solid #cbd5f5;
+  color: var(--text);
+}
+
 .triage-textarea {
   width: 100%;
   resize: vertical;
   min-height: 120px;
+  font: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.patient-id-input {
+  width: 100%;
   font: inherit;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -205,10 +221,16 @@ textarea {
   box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.3);
 }
 
+.patient-id-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.3);
+}
+
 .action-row {
-  margin-top: 12px;
-  display: flex;
-  flex-wrap: wrap;
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
 
@@ -234,6 +256,8 @@ textarea {
   cursor: pointer;
   background: rgba(37, 99, 235, 0.08);
   color: var(--text);
+  width: 100%;
+  justify-content: center;
 }
 
 .secondary-button.recording {
@@ -248,6 +272,46 @@ textarea {
   gap: 10px;
   position: relative;
   overflow: hidden;
+}
+
+.voice-capture-wrap {
+  margin-top: 16px;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.voice-capture-button {
+  width: 96px;
+  height: 96px;
+  border-radius: 999px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.32);
+}
+
+.voice-capture-button:hover {
+  transform: translateY(-2px) scale(1.03);
+}
+
+.voice-capture-button.recording {
+  background: linear-gradient(135deg, #ef4444, #f97316);
+  box-shadow: 0 14px 30px rgba(239, 68, 68, 0.4);
+  animation: micPulse 1.2s ease-in-out infinite;
+}
+
+.voice-capture-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.voice-capture-label {
+  margin: 0;
+  color: var(--subtext);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-align: center;
 }
 
 .upload-wrap input[type="file"] {
@@ -342,6 +406,10 @@ textarea {
   gap: 15px;
 }
 
+.output-card-span-two {
+  grid-column: span 2;
+}
+
 .output-grid > :last-child {
   grid-column: span 2;
 }
@@ -387,6 +455,64 @@ textarea {
   margin-top: 6px;
 }
 
+.patient-history-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
+}
+
+.patient-history-grid p {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.patient-history-label {
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
+  color: var(--subtext);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.patient-history-text {
+  margin: 12px 0 0;
+  color: var(--subtext);
+}
+
+.related-diagnosis-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.related-diagnosis-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.related-diagnosis-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.related-diagnosis-name {
+  margin: 0;
+  font-weight: 700;
+}
+
+.related-diagnosis-meta,
+.related-diagnosis-title {
+  margin: 6px 0 0;
+  color: var(--subtext);
+}
+
 .dashboard-card h3 {
   margin: 0 0 10px;
 }
@@ -408,6 +534,65 @@ textarea {
 
 .recent-cases-card li + li {
   margin-top: 6px;
+}
+
+.recent-cases-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.recent-cases-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(56, 189, 248, 0.06);
+}
+
+.recent-case-main {
+  min-width: 0;
+}
+
+.recent-case-title {
+  margin: 0;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.recent-case-context {
+  margin: 4px 0 0;
+  color: var(--subtext);
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-case-severity {
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #ffffff;
+}
+
+.recent-case-severity.high {
+  background: var(--high);
+}
+
+.recent-case-severity.medium {
+  background: var(--medium);
+}
+
+.recent-case-severity.low {
+  background: var(--low);
 }
 
 .theme-toggle {
@@ -474,7 +659,21 @@ textarea {
   }
 }
 
-@media (max-width: 900px) {
+@keyframes micPulse {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.06);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 1100px) {
   .app-container {
     padding: 12px;
   }
@@ -487,8 +686,20 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .output-card-span-two {
+    grid-column: auto;
+  }
+
   .output-grid > :last-child {
     grid-column: auto;
+  }
+
+  .patient-history-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .action-row {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -504,5 +715,10 @@ textarea {
 
   .output-header {
     gap: 10px;
+  }
+
+  .voice-capture-button {
+    width: 84px;
+    height: 84px;
   }
 }

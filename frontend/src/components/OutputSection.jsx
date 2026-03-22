@@ -1,6 +1,8 @@
 import DiagnosisCard from "./DiagnosisCard";
 import ActionCard from "./ActionCard";
 import ExplanationList from "./ExplanationList";
+import PatientHistoryCard from "./PatientHistoryCard";
+import RelatedDiagnosesCard from "./RelatedDiagnosesCard";
 import SeverityBadge from "./SeverityBadge";
 
 function OutputSection({ result }) {
@@ -15,10 +17,12 @@ function OutputSection({ result }) {
     );
   }
 
+  const isPatientInsights = result.mode === "patient-insights";
+
   return (
     <section className="card output-section output-panel-fill">
       <div className="output-header">
-        <h2>Triage Result</h2>
+        <h2>{isPatientInsights ? "Patient History Insight" : "Triage Result"}</h2>
         <div className="severity-row">
           <span>Severity</span>
           <SeverityBadge severity={result.severity} />
@@ -28,6 +32,8 @@ function OutputSection({ result }) {
       <div className="output-grid">
         <DiagnosisCard diagnosis={result.diagnosis || "No diagnosis available"} />
         <ActionCard action={result.action || "No action recommendation available"} />
+        {isPatientInsights ? <PatientHistoryCard patient={result.patientHistory} /> : null}
+        {isPatientInsights ? <RelatedDiagnosesCard items={result.relatedDiagnoses} /> : null}
         <ExplanationList items={Array.isArray(result.explanation) ? result.explanation : []} />
       </div>
     </section>
