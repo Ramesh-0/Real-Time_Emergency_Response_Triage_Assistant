@@ -1,11 +1,19 @@
 require("dotenv").config();
 
+const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const axios = require("axios");
 const dataset = require("./data.json");
+const { HybridChunkIndex } = require("./lib/hybridIndex");
+const {
+	ingestUnstructuredItems,
+	mergeChunkRecords,
+	loadPersistedChunks,
+	persistChunks
+} = require("./lib/unstructuredIngestion");
 
 function parsePositiveInteger(value, fallback) {
 	const parsed = Number.parseInt(value, 10);
@@ -24,7 +32,16 @@ const LATENCY_TARGET_MS = parsePositiveInteger(process.env.LATENCY_TARGET_MS, 50
 const SCALEDOWN_MIN_CANDIDATES = parsePositiveInteger(process.env.SCALEDOWN_MIN_CANDIDATES, 4);
 const LOCAL_PRUNE_TOP_K = parsePositiveInteger(process.env.LOCAL_PRUNE_TOP_K, 8);
 const MAX_DOC_AGE_DAYS = parsePositiveInteger(process.env.MAX_DOC_AGE_DAYS, 3650);
-const API_JSON_LIMIT = process.env.API_JSON_LIMIT || "50kb";
+const API_JSON_LIMIT = process.env.API_JSON_LIMIT || "5mb";
+const MIN_SEARCHABLE_CHUNKS = parsePositiveInteger(process.env.MIN_SEARCHABLE_CHUNKS, 10000);
+const INGEST_DEFAULT_CHUNK_SIZE_WORDS = parsePositiveInteger(process.env.INGEST_DEFAULT_CHUNK_SIZE_WORDS, 180);
+const INGEST_DEFAULT_CHUNK_OVERLAP_WORDS = parsePositiveInteger(process.env.INGEST_DEFAULT_CHUNK_OVERLAP_WORDS, 35);
+const INGEST_MAX_ITEMS_PER_REQUEST = parsePositiveInteger(process.env.INGEST_MAX_ITEMS_PER_REQUEST, 50);
+const INGEST_MAX_TEXT_CHARS = parsePositiveInteger(process.env.INGEST_MAX_TEXT_CHARS, 3000000);
+const HYBRID_VECTOR_DIMENSIONS = parsePositiveInteger(process.env.HYBRID_VECTOR_DIMENSIONS, 256);
+const INGEST_CHUNK_STORE_PATH = process.env.INGEST_CHUNK_STORE_PATH
+	? path.resolve(process.cwd(), process.env.INGEST_CHUNK_STORE_PATH)
+	: path.join(__dirname, "ingested_chunks.json");
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || "")
 	.split(",")
 	.map((origin) => origin.trim())
@@ -118,6 +135,46 @@ const CASE_BY_ID = new Map(
 		.filter((doc) => doc && doc.id)
 		.map((doc) => [doc.id, doc])
 );
+
+function toBaseIndexRecord(doc) {
+	return {
+		id: doc.id,
+		type: doc.type || "general",
+		date: doc.date || null,
+		source: "seed:data.json",
+		section: doc.type || "General",
+		title: doc.title || "",
+		text: doc.text || doc.content || "",
+		keywords: Array.isArray(doc.keywords) ? doc.keywords : [],
+		diagnosis: doc.diagnosis || null,
+		action: doc.action || null,
+		severity: doc.severity || null,
+		content_type: "application/json"
+	};
+}
+
+const baseDatasetRecords = dataset.filter((doc) => doc && doc.id).map(toBaseIndexRecord);
+let ingestedChunkRecords = [];
+const hybridIndex = new HybridChunkIndex({
+	vectorDimensions: HYBRID_VECTOR_DIMENSIONS
+});
+
+function rebuildHybridIndex() {
+	return hybridIndex.replaceAll([...baseDatasetRecords, ...ingestedChunkRecords]);
+}
+
+async function initializeHybridIndex() {
+	ingestedChunkRecords = await loadPersistedChunks(INGEST_CHUNK_STORE_PATH);
+	const totalIndexedChunks = rebuildHybridIndex();
+
+	log("info", "Hybrid retrieval index initialized", {
+		total_chunks: totalIndexedChunks,
+		ingested_chunks: ingestedChunkRecords.length,
+		min_searchable_chunks: MIN_SEARCHABLE_CHUNKS,
+		chunk_goal_met: totalIndexedChunks >= MIN_SEARCHABLE_CHUNKS,
+		chunk_store_path: INGEST_CHUNK_STORE_PATH
+	});
+}
 
 function parseLimit(limitValue) {
 	const parsed = Number.parseInt(limitValue, 10);
@@ -251,7 +308,100 @@ function validateRetrievePayload(payload) {
 	};
 }
 
-function retrieveDocuments(query) {
+function normalizeOptionalString(value) {
+	if (typeof value !== "string") {
+		return null;
+	}
+
+	const trimmed = value.trim();
+	return trimmed ? trimmed : null;
+}
+
+function normalizeIngestionItem(rawItem, index) {
+	if (!rawItem || typeof rawItem !== "object") {
+		throw new HttpError(400, `items[${index}] must be an object`);
+	}
+
+	const normalizedText = normalizeOptionalString(rawItem.text);
+	const normalizedSourcePath =
+		normalizeOptionalString(rawItem.sourcePath) || normalizeOptionalString(rawItem.source_path);
+
+	if (!normalizedText && !normalizedSourcePath) {
+		throw new HttpError(400, `items[${index}] requires either text or sourcePath`);
+	}
+
+	if (normalizedText && normalizedText.length > INGEST_MAX_TEXT_CHARS) {
+		throw new HttpError(400, `items[${index}].text exceeds max length of ${INGEST_MAX_TEXT_CHARS}`);
+	}
+
+	return {
+		id: normalizeOptionalString(rawItem.id),
+		type: normalizeOptionalString(rawItem.type) || "protocol",
+		date: normalizeOptionalString(rawItem.date),
+		source: normalizeOptionalString(rawItem.source),
+		section: normalizeOptionalString(rawItem.section),
+		title: normalizeOptionalString(rawItem.title),
+		text: normalizedText,
+		sourcePath: normalizedSourcePath
+	};
+}
+
+function validateIngestionPayload(payload) {
+	if (!payload || typeof payload !== "object") {
+		throw new HttpError(400, "Request body must be a JSON object");
+	}
+
+	const rawItems = Array.isArray(payload.items) ? payload.items : [payload];
+
+	if (rawItems.length === 0) {
+		throw new HttpError(400, "items must include at least one ingestion entry");
+	}
+
+	if (rawItems.length > INGEST_MAX_ITEMS_PER_REQUEST) {
+		throw new HttpError(400, `items exceeds max batch size of ${INGEST_MAX_ITEMS_PER_REQUEST}`);
+	}
+
+	const items = rawItems.map((item, index) => normalizeIngestionItem(item, index));
+	const chunking = payload.chunking && typeof payload.chunking === "object" ? payload.chunking : {};
+	const chunkSizeWords = parsePositiveInteger(
+		chunking.chunkSizeWords || chunking.chunk_size_words || payload.chunkSizeWords || payload.chunk_size_words,
+		INGEST_DEFAULT_CHUNK_SIZE_WORDS
+	);
+	const chunkOverlapWords = parsePositiveInteger(
+		chunking.chunkOverlapWords || chunking.chunk_overlap_words || payload.chunkOverlapWords || payload.chunk_overlap_words,
+		INGEST_DEFAULT_CHUNK_OVERLAP_WORDS
+	);
+
+	if (chunkOverlapWords >= chunkSizeWords) {
+		throw new HttpError(400, "chunk overlap must be smaller than chunk size");
+	}
+
+	return {
+		items,
+		chunkSizeWords,
+		chunkOverlapWords,
+		persist: payload.persist !== false
+	};
+}
+
+function validateChunkSearchPayload(payload) {
+	const { query, limit } = validateRetrievePayload(payload);
+	const filters = payload && typeof payload.filters === "object" ? payload.filters : {};
+
+	return {
+		query,
+		limit,
+		filters: {
+			type: normalizeOptionalString(filters.type || payload?.type),
+			source: normalizeOptionalString(filters.source || payload?.source),
+			section: normalizeOptionalString(filters.section || payload?.section),
+			startDate: normalizeOptionalString(filters.startDate || filters.start_date || payload?.startDate || payload?.start_date),
+			endDate: normalizeOptionalString(filters.endDate || filters.end_date || payload?.endDate || payload?.end_date)
+		}
+	};
+}
+
+function retrieveDocumentsFallback(query) {
 	const queryTokens = tokenize(query);
 	const tokenSet = new Set(queryTokens);
 
@@ -301,6 +451,27 @@ function retrieveDocuments(query) {
 	}
 
 	return dataset.slice(0, SAFE_DEFAULT_LIMIT);
+}
+
+function retrieveDocuments(query, limit = MAX_LIMIT) {
+	const normalizedLimit = Math.min(Math.max(limit, 1), MAX_LIMIT);
+	const candidatePool = Math.max(normalizedLimit * 8, 200);
+	const hybridHits = hybridIndex.search(query, {
+		limit: normalizedLimit,
+		candidatePool
+	});
+	const hybridDocs = hybridHits.map((hit) => hit.doc);
+	const fallbackSeed = retrieveDocumentsFallback(query).slice(
+		0,
+		Math.max(3, Math.ceil(normalizedLimit * 0.25))
+	);
+	const merged = dedupeDocs([...hybridDocs, ...fallbackSeed]);
+
+	if (merged.length > 0) {
+		return merged.slice(0, normalizedLimit);
+	}
+
+	return retrieveDocumentsFallback(query).slice(0, normalizedLimit);
 }
 
 function isNoisyQuery(query, candidateCount) {
@@ -605,11 +776,17 @@ function toClientDoc(doc) {
 		id: doc.id || null,
 		type: doc.type || "unknown",
 		date: doc.date || null,
+		source: doc.source || "unknown",
+		section: doc.section || "General",
 		title: doc.title || "",
 		text: doc.text || doc.content || "",
 		diagnosis: doc.diagnosis || null,
 		action: doc.action || null,
-		severity: doc.severity || null
+		severity: doc.severity || null,
+		parent_id: doc.parent_id || null,
+		chunk_index: Number.isInteger(doc.chunk_index) ? doc.chunk_index : null,
+		chunk_count: Number.isInteger(doc.chunk_count) ? doc.chunk_count : null,
+		content_type: doc.content_type || null
 	};
 }
 
@@ -650,6 +827,18 @@ function buildDecision(query, prunedDocs) {
 		};
 	}
 
+	const fallbackCase = rankDocsByRelevance(query, dataset).find((doc) => {
+		return doc && doc.diagnosis && doc.action && doc.severity;
+	});
+
+	if (fallbackCase) {
+		return {
+			diagnosis: fallbackCase.diagnosis,
+			action: fallbackCase.action,
+			severity: fallbackCase.severity
+		};
+	}
+
 	return {
 		diagnosis: "Needs clinician triage review",
 		action: "No confident case match found. Perform immediate clinician assessment.",
@@ -666,7 +855,7 @@ function asyncHandler(handler) {
 async function handleRetrieveRequest(req, res) {
 	const startedAt = Date.now();
 	const { query, limit } = validateRetrievePayload(req.body);
-	const retrievedDocs = retrieveDocuments(query);
+	const retrievedDocs = retrieveDocuments(query, MAX_LIMIT);
 	const limitedRetrievedDocs = retrievedDocs.slice(0, limit);
 	const pruningCandidates = retrievedDocs.slice(0, Math.min(retrievedDocs.length, MAX_LIMIT));
 	const pruneTargetCount = computePruneTargetCount(query, limitedRetrievedDocs.length, pruningCandidates.length);
@@ -696,10 +885,104 @@ async function handleRetrieveRequest(req, res) {
 	});
 }
 
+async function handleChunkSearchRequest(req, res) {
+	const startedAt = Date.now();
+	const { query, limit, filters } = validateChunkSearchPayload(req.body);
+	const hits = hybridIndex.search(query, {
+		limit,
+		candidatePool: Math.max(limit * 8, 200),
+		filters
+	});
+	const latencyMs = Date.now() - startedAt;
+
+	return res.json({
+		query,
+		limit,
+		hit_count: hits.length,
+		total_searchable_chunks: hybridIndex.size(),
+		min_searchable_chunks: MIN_SEARCHABLE_CHUNKS,
+		chunk_goal_met: hybridIndex.size() >= MIN_SEARCHABLE_CHUNKS,
+		latency_ms: latencyMs,
+		latency_target_ms: LATENCY_TARGET_MS,
+		latency_target_met: latencyMs <= LATENCY_TARGET_MS,
+		filters,
+		results: hits.map((hit) => ({
+			...toClientDoc(hit.doc),
+			hybrid_score: hit.score,
+			lexical_score: hit.lexicalScore,
+			vector_score: hit.vectorScore
+		}))
+	});
+}
+
+function handleIndexStatsRequest(_req, res) {
+	const stats = hybridIndex.getStats();
+
+	return res.json({
+		...stats,
+		base_dataset_chunks: baseDatasetRecords.length,
+		ingested_chunks: ingestedChunkRecords.length,
+		min_searchable_chunks: MIN_SEARCHABLE_CHUNKS,
+		chunk_goal_met: stats.total_chunks >= MIN_SEARCHABLE_CHUNKS,
+		latency_target_ms: LATENCY_TARGET_MS,
+		chunk_store_path: INGEST_CHUNK_STORE_PATH
+	});
+}
+
+async function handleUnstructuredIngestRequest(req, res) {
+	const startedAt = Date.now();
+	const { items, chunkSizeWords, chunkOverlapWords, persist } = validateIngestionPayload(req.body);
+	const { chunks, summaries, errors } = await ingestUnstructuredItems(items, {
+		rootDirectory: __dirname,
+		chunkSizeWords,
+		chunkOverlapWords
+	});
+
+	if (chunks.length === 0) {
+		const firstError = errors[0]?.message || "No chunkable text found in request";
+		throw new HttpError(400, firstError);
+	}
+
+	ingestedChunkRecords = mergeChunkRecords(ingestedChunkRecords, chunks);
+
+	if (persist) {
+		await persistChunks(INGEST_CHUNK_STORE_PATH, ingestedChunkRecords);
+	}
+
+	const totalSearchableChunks = rebuildHybridIndex();
+	const latencyMs = Date.now() - startedAt;
+
+	if (errors.length > 0) {
+		log("warn", "Ingestion completed with partial failures", {
+			error_count: errors.length,
+			ingested_chunks: chunks.length
+		});
+	}
+
+	return res.status(errors.length > 0 ? 207 : 201).json({
+		ingested_item_count: summaries.length,
+		ingested_chunk_count: chunks.length,
+		total_ingested_chunks: ingestedChunkRecords.length,
+		total_searchable_chunks: totalSearchableChunks,
+		min_searchable_chunks: MIN_SEARCHABLE_CHUNKS,
+		chunk_goal_met: totalSearchableChunks >= MIN_SEARCHABLE_CHUNKS,
+		latency_ms: latencyMs,
+		latency_target_ms: LATENCY_TARGET_MS,
+		latency_target_met: latencyMs <= LATENCY_TARGET_MS,
+		persisted: persist,
+		chunking: {
+			chunk_size_words: chunkSizeWords,
+			chunk_overlap_words: chunkOverlapWords
+		},
+		ingested_items: summaries,
+		errors
+	});
+}
+
 async function handleTriageRequest(req, res) {
 	const startedAt = Date.now();
 	const { query, limit } = validateRetrievePayload(req.body);
-	const retrievedDocs = retrieveDocuments(query);
+	const retrievedDocs = retrieveDocuments(query, MAX_LIMIT);
 	const limitedRetrievedDocs = retrievedDocs.slice(0, limit);
 	const pruningCandidates = retrievedDocs.slice(0, Math.min(retrievedDocs.length, MAX_LIMIT));
 	const pruneTargetCount = computePruneTargetCount(query, limitedRetrievedDocs.length, pruningCandidates.length);
@@ -742,7 +1025,14 @@ app.get("/", (_req, res) => {
 	res.json({
 		name: "Real-Time Emergency Response Triage Assistant API",
 		status: "ok",
-		endpoints: ["GET /health", "POST /retrieve", "POST /triage"]
+		endpoints: [
+			"GET /health",
+			"GET /index/stats",
+			"POST /retrieve",
+			"POST /search/chunks",
+			"POST /ingest/unstructured",
+			"POST /triage"
+		]
 	});
 });
 
@@ -750,7 +1040,10 @@ app.get("/.well-known/appspecific/com.chrome.devtools.json", (_req, res) => {
 	res.json({});
 });
 
+app.get("/index/stats", handleIndexStatsRequest);
 app.post("/retrieve", asyncHandler(handleRetrieveRequest));
+app.post("/search/chunks", asyncHandler(handleChunkSearchRequest));
+app.post("/ingest/unstructured", asyncHandler(handleUnstructuredIngestRequest));
 app.post("/triage", asyncHandler(handleTriageRequest));
 
 app.use((_req, res) => {
@@ -771,15 +1064,28 @@ app.use((error, _req, res, _next) => {
 	});
 });
 
-const server = app.listen(PORT, () => {
-	log("info", "Triage backend running", {
-		port: PORT,
-		node_env: process.env.NODE_ENV || "development"
+let server = null;
+
+async function startServer() {
+	await initializeHybridIndex();
+
+	server = app.listen(PORT, () => {
+		log("info", "Triage backend running", {
+			port: PORT,
+			node_env: process.env.NODE_ENV || "development",
+			total_searchable_chunks: hybridIndex.size(),
+			chunk_goal_met: hybridIndex.size() >= MIN_SEARCHABLE_CHUNKS
+		});
 	});
-});
+}
 
 function shutdown(signal) {
 	log("info", "Shutdown signal received", { signal });
+
+	if (!server) {
+		process.exit(0);
+		return;
+	}
 
 	server.close((error) => {
 		if (error) {
@@ -798,6 +1104,13 @@ function shutdown(signal) {
 		process.exit(1);
 	}, 10000).unref();
 }
+
+startServer().catch((error) => {
+	log("error", "Failed to start server", {
+		message: error.message
+	});
+	process.exit(1);
+});
 
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
