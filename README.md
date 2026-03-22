@@ -12,6 +12,13 @@ This project addresses that by building a triage assistant that:
 - removes irrelevant noise before reasoning,
 - returns diagnosis, severity, and recommended action quickly.
 
+## Demo
+
+
+https://github.com/user-attachments/assets/ae769ac8-bdb4-48ed-8553-dcc43b3d7c4a
+
+
+
 ## Core Constraints and How This System Handles Them
 
 ### 1) Latency is primary (< 500 ms)
