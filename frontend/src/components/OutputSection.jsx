@@ -18,6 +18,10 @@ function OutputSection({ result }) {
   }
 
   const isPatientInsights = result.mode === "patient-insights";
+  const relatedDiagnoses = Array.isArray(result.relatedDiagnoses)
+    ? result.relatedDiagnoses
+    : [];
+  const shouldShowRelatedDiagnoses = isPatientInsights || relatedDiagnoses.length > 0;
 
   return (
     <section className="card output-section output-panel-fill">
@@ -33,7 +37,7 @@ function OutputSection({ result }) {
         <DiagnosisCard diagnosis={result.diagnosis || "No diagnosis available"} />
         <ActionCard action={result.action || "No action recommendation available"} />
         {isPatientInsights ? <PatientHistoryCard patient={result.patientHistory} /> : null}
-        {isPatientInsights ? <RelatedDiagnosesCard items={result.relatedDiagnoses} /> : null}
+        {shouldShowRelatedDiagnoses ? <RelatedDiagnosesCard items={relatedDiagnoses} /> : null}
         <ExplanationList items={Array.isArray(result.explanation) ? result.explanation : []} />
       </div>
     </section>

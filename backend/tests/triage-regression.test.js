@@ -326,6 +326,31 @@ test("voice triage matches text triage structure", async () => {
 	);
 });
 
+test("low-confidence symptom overlap avoids unrelated diagnosis", async () => {
+	const payload = await postTriage(baseUrl, "joint pain and knee bleeding", requestLimit);
+
+	assert.equal(
+		normalizeText(payload?.result?.diagnosis),
+		normalizeText("Needs clinician triage review"),
+		"low-confidence query should not force unrelated diagnosis"
+	);
+	assert.equal(
+		normalizeSeverity(payload?.result?.severity),
+		normalizeSeverity("MEDIUM"),
+		"low-confidence fallback severity should stay MEDIUM"
+	);
+	assert.equal(
+		Array.isArray(payload?.pruned_context),
+		true,
+		"triage payload should include related context cases"
+	);
+	assert.equal(
+		payload.pruned_context.length > 0,
+		true,
+		"related context should contain symptom-overlap candidates"
+	);
+});
+
 process.on("unhandledRejection", (error) => {
 	const recentLogs = serverLogs.slice(-20).join("\n");
 	if (recentLogs) {

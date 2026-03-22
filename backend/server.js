@@ -108,6 +108,8 @@ const DOC_NON_CRITICAL_RECENCY_DAYS = Math.min(
 	MAX_DOC_AGE_DAYS,
 	parsePositiveInteger(process.env.DOC_NON_CRITICAL_RECENCY_DAYS, MAX_DOC_AGE_DAYS)
 );
+const DECISION_MIN_SCORE = parsePositiveInteger(process.env.DECISION_MIN_SCORE, 4);
+const DECISION_MIN_MATCH_RATIO = parseRatio(process.env.DECISION_MIN_MATCH_RATIO, 0.4);
 const API_JSON_LIMIT = process.env.API_JSON_LIMIT || "5mb";
 const MIN_SEARCHABLE_CHUNKS = parsePositiveInteger(process.env.MIN_SEARCHABLE_CHUNKS, 10000);
 const INGEST_DEFAULT_CHUNK_SIZE_WORDS = parsePositiveInteger(process.env.INGEST_DEFAULT_CHUNK_SIZE_WORDS, 180);
@@ -278,6 +280,34 @@ const KEYWORD_TO_TYPE = {
 	rash: "general",
 	throat: "general"
 };
+
+const LOW_SIGNAL_QUERY_TOKENS = new Set([
+	"a",
+	"an",
+	"and",
+	"are",
+	"for",
+	"history",
+	"in",
+	"is",
+	"issue",
+	"issues",
+	"mild",
+	"of",
+	"or",
+	"pain",
+	"patient",
+	"plus",
+	"problem",
+	"problems",
+	"severe",
+	"symptom",
+	"symptoms",
+	"the",
+	"to",
+	"unknown",
+	"with"
+]);
 
 const CRITICAL_QUERY_TOKENS = new Set([
 	"severe",
@@ -948,20 +978,85 @@ function computeRelevanceScore(queryTokens, doc) {
 		return 0;
 	}
 
-	const tokenSet = new Set(queryTokens);
+	return buildDocMatchSignals(queryTokens, doc).totalScore;
+}
+
+function buildDocMatchSignals(queryTokens, doc) {
+	if (!doc || typeof doc !== "object") {
+		return {
+			totalScore: 0,
+			matchedTokenCount: 0,
+			informativeMatchedTokenCount: 0,
+			matchRatio: 0
+		};
+	}
+
+	const uniqueQueryTokens = [...new Set(Array.isArray(queryTokens) ? queryTokens : [])];
+	const tokenSet = new Set(uniqueQueryTokens);
+	const matchedTokens = new Set();
 	const keywords = Array.isArray(doc.keywords) ? doc.keywords : [];
 	const keywordHits = keywords.reduce((score, keyword) => {
-		return tokenSet.has(String(keyword).toLowerCase()) ? score + 3 : score;
+		const normalizedKeyword = String(keyword).toLowerCase();
+
+		if (tokenSet.has(normalizedKeyword)) {
+			matchedTokens.add(normalizedKeyword);
+			return score + 3;
+		}
+
+		return score;
 	}, 0);
 
 	const textBody = `${doc.title || ""} ${doc.text || doc.content || ""}`.toLowerCase();
-	const textHits = queryTokens.reduce((score, token) => {
-		return token.length > 2 && textBody.includes(token) ? score + 1 : score;
+	const textHits = uniqueQueryTokens.reduce((score, token) => {
+		if (token.length > 2 && textBody.includes(token)) {
+			matchedTokens.add(token);
+			return score + 1;
+		}
+
+		return score;
 	}, 0);
 
-	const typeHit = typeof doc.type === "string" && tokenSet.has(doc.type.toLowerCase()) ? 1 : 0;
+	const normalizedDocType = typeof doc.type === "string" ? doc.type.toLowerCase() : "";
+	const typeHit = normalizedDocType && tokenSet.has(normalizedDocType) ? 1 : 0;
 
-	return keywordHits + textHits + typeHit;
+	if (typeHit > 0) {
+		matchedTokens.add(normalizedDocType);
+	}
+
+	const informativeMatchedTokenCount = [...matchedTokens].filter((token) => {
+		return !LOW_SIGNAL_QUERY_TOKENS.has(token);
+	}).length;
+	const totalScore = keywordHits + textHits + typeHit;
+	const matchRatio = uniqueQueryTokens.length > 0
+		? Number((matchedTokens.size / uniqueQueryTokens.length).toFixed(4))
+		: 0;
+
+	return {
+		totalScore,
+		matchedTokenCount: matchedTokens.size,
+		informativeMatchedTokenCount,
+		matchRatio
+	};
+}
+
+function isConfidentDecisionMatch(queryTokens, signals) {
+	const uniqueQueryTokenCount = new Set(Array.isArray(queryTokens) ? queryTokens : []).size;
+
+	if (uniqueQueryTokenCount === 0) {
+		return false;
+	}
+
+	const minMatchedTokenCount = Math.max(
+		1,
+		Math.ceil(uniqueQueryTokenCount * DECISION_MIN_MATCH_RATIO)
+	);
+
+	return (
+		signals.totalScore >= DECISION_MIN_SCORE &&
+		signals.matchedTokenCount >= minMatchedTokenCount &&
+		signals.matchRatio >= DECISION_MIN_MATCH_RATIO &&
+		signals.informativeMatchedTokenCount >= 1
+	);
 }
 
 function rankDocsByRelevance(query, docs) {
@@ -2163,6 +2258,7 @@ function toClientDoc(doc) {
 }
 
 function buildDecision(query, prunedDocs) {
+	const queryTokens = tokenize(query);
 	const normalizedCandidates = prunedDocs
 		.map((doc) => {
 			if (doc && doc.id && CASE_BY_ID.has(doc.id)) {
@@ -2175,9 +2271,9 @@ function buildDecision(query, prunedDocs) {
 
 	const scoredCandidates = normalizedCandidates
 		.map((doc) => {
-			const totalScore = computeRelevanceScore(tokenize(query), doc);
+			const signals = buildDocMatchSignals(queryTokens, doc);
 
-			return { doc, totalScore };
+			return { doc, ...signals };
 		})
 		.sort((a, b) => {
 			if (b.totalScore !== a.totalScore) {
@@ -2187,8 +2283,16 @@ function buildDecision(query, prunedDocs) {
 			return toEpoch(b.doc.date) - toEpoch(a.doc.date);
 		});
 
-	const bestCase = scoredCandidates.find(({ doc }) => {
-		return doc && doc.diagnosis && doc.action && doc.severity;
+	const bestCase = scoredCandidates.find((candidate) => {
+		const doc = candidate.doc;
+
+		return (
+			doc &&
+			doc.diagnosis &&
+			doc.action &&
+			doc.severity &&
+			isConfidentDecisionMatch(queryTokens, candidate)
+		);
 	});
 
 	if (bestCase) {
@@ -2199,15 +2303,32 @@ function buildDecision(query, prunedDocs) {
 		};
 	}
 
-	const fallbackCase = rankDocsByRelevance(query, dataset).find((doc) => {
-		return doc && doc.diagnosis && doc.action && doc.severity;
+	const fallbackCase = rankDocsByRelevance(query, dataset)
+		.map((doc) => {
+			const signals = buildDocMatchSignals(queryTokens, doc);
+
+			return {
+				doc,
+				...signals
+			};
+		})
+		.find((candidate) => {
+			const doc = candidate.doc;
+
+			return (
+				doc &&
+				doc.diagnosis &&
+				doc.action &&
+				doc.severity &&
+				isConfidentDecisionMatch(queryTokens, candidate)
+			);
 	});
 
 	if (fallbackCase) {
 		return {
-			diagnosis: fallbackCase.diagnosis,
-			action: fallbackCase.action,
-			severity: fallbackCase.severity
+			diagnosis: fallbackCase.doc.diagnosis,
+			action: fallbackCase.doc.action,
+			severity: fallbackCase.doc.severity
 		};
 	}
 

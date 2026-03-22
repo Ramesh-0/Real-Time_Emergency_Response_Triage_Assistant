@@ -71,17 +71,61 @@ function buildExplanation(payload) {
   return explanation;
 }
 
+function buildRelatedDiagnosesFromTriagePayload(payload) {
+  const contextDocs = Array.isArray(payload?.pruned_context) && payload.pruned_context.length > 0
+    ? payload.pruned_context
+    : Array.isArray(payload?.retrieved_docs)
+      ? payload.retrieved_docs
+      : [];
+  const seen = new Set();
+
+  return contextDocs
+    .filter((doc) => doc && typeof doc === "object")
+    .map((doc) => {
+      return {
+        id: doc.id || null,
+        type: doc.type || "unknown",
+        date: doc.date || null,
+        title: doc.title || "",
+        diagnosis: doc.diagnosis || "Related symptom pattern",
+        severity: doc.severity || "LOW",
+      };
+    })
+    .filter((item) => {
+      const dedupeKey = item.id || `${item.diagnosis}|${item.type}|${item.date || ""}|${item.title}`;
+
+      if (seen.has(dedupeKey)) {
+        return false;
+      }
+
+      seen.add(dedupeKey);
+      return true;
+    })
+    .slice(0, 5);
+}
+
 function toUiResult(payload) {
+  const relatedDiagnoses = buildRelatedDiagnosesFromTriagePayload(payload);
+  const diagnosis = payload?.result?.diagnosis || "Needs clinician triage review";
+  const action =
+    payload?.result?.action ||
+    "No action recommendation was returned. Escalate to clinician review.";
+  const explanation = buildExplanation(payload);
+
+  if (diagnosis === "Needs clinician triage review" && relatedDiagnoses.length > 0) {
+    explanation.push(
+      `No high-confidence direct match found. Showing ${relatedDiagnoses.length} related patient cases by symptom overlap.`
+    );
+  }
+
   return {
     mode: "triage",
-    diagnosis: payload?.result?.diagnosis || "Needs clinician triage review",
-    action:
-      payload?.result?.action ||
-      "No action recommendation was returned. Escalate to clinician review.",
+    diagnosis,
+    action,
     severity: payload?.result?.severity || "MEDIUM",
-    explanation: buildExplanation(payload),
+    explanation,
     patientHistory: null,
-    relatedDiagnoses: [],
+    relatedDiagnoses,
   };
 }
 
