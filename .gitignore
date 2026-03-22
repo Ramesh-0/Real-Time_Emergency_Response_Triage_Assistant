@@ -3,4 +3,9 @@ node_modules/
 backend/.env
 backend/.env.*
 !backend/.env.example
+frontend/.env
+frontend/.env.*
+frontend/dist/
+backend/__pycache__/
+*.pyc
 *.log
