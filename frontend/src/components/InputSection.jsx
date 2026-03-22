@@ -2,12 +2,24 @@ function InputSection({
   inputText,
   onInputChange,
   onFileChange,
+  onStartVoiceCapture,
+  onStopVoiceCapture,
   onAnalyze,
   isLoading,
   file,
+  canAnalyze,
+  isListening,
+  isSpeechSupported,
+  liveTranscript,
+  speechError,
+  inputMode,
 }) {
-  const canAnalyze = Boolean(inputText.trim()) || Boolean(file);
   const maxChars = 3000;
+  const analyzeButtonLabel = isLoading
+    ? "Analyzing..."
+    : inputMode === "voice"
+      ? "Analyze Voice Transcript"
+      : "Analyze Case";
 
   return (
     <section className="card input-section">
@@ -42,9 +54,26 @@ function InputSection({
             onChange={(event) => onFileChange(event.target.files?.[0] || null)}
           />
         </label>
+
+        <button
+          type="button"
+          className={`secondary-button ${isListening ? "recording" : ""}`}
+          onClick={isListening ? onStopVoiceCapture : onStartVoiceCapture}
+          disabled={isLoading || !isSpeechSupported}
+          title={isSpeechSupported ? "Capture speech transcript" : "Browser speech API not available"}
+        >
+          {isListening ? "Stop Voice Capture" : "Start Voice Capture"}
+        </button>
       </div>
 
       {file ? <p className="upload-message">Selected: {file.name}</p> : null}
+      {liveTranscript ? <p className="live-transcript">Listening: {liveTranscript}</p> : null}
+      {!isSpeechSupported ? (
+        <p className="speech-warning">
+          Streaming voice input is not supported by this browser.
+        </p>
+      ) : null}
+      {speechError ? <p className="speech-warning">{speechError}</p> : null}
 
       <button
         type="button"
@@ -52,7 +81,7 @@ function InputSection({
         onClick={onAnalyze}
         disabled={isLoading || !canAnalyze}
       >
-        {isLoading ? "Analyzing..." : "Analyze Case"}
+        {analyzeButtonLabel}
       </button>
     </section>
   );

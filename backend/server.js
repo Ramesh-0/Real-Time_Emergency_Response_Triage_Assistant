@@ -1221,6 +1221,31 @@ function validateRetrievePayload(payload) {
 	};
 }
 
+function validateVoiceTriagePayload(payload) {
+	const candidateTranscript = typeof payload?.transcript === "string"
+		? payload.transcript
+		: payload?.query;
+
+	if (typeof candidateTranscript !== "string") {
+		throw new HttpError(400, "transcript is required and must be a string");
+	}
+
+	const normalizedTranscript = candidateTranscript.trim();
+
+	if (!normalizedTranscript) {
+		throw new HttpError(400, "transcript cannot be empty");
+	}
+
+	if (normalizedTranscript.length > QUERY_MAX_LENGTH) {
+		throw new HttpError(400, `transcript exceeds max length of ${QUERY_MAX_LENGTH}`);
+	}
+
+	return {
+		transcript: normalizedTranscript,
+		limit: parseLimit(payload?.limit)
+	};
+}
+
 function normalizeOptionalString(value) {
 	if (typeof value !== "string") {
 		return null;
@@ -1951,9 +1976,8 @@ async function handleUnstructuredIngestRequest(req, res) {
 	});
 }
 
-async function handleTriageRequest(req, res) {
+async function runTriagePipeline(query, limit, endpointLabel) {
 	const startedAt = performance.now();
-	const { query, limit } = validateRetrievePayload(req.body);
 
 	const retrieveStartedAt = performance.now();
 	const retrievedDocsRaw = retrieveDocuments(query, MAX_LIMIT);
@@ -2014,14 +2038,13 @@ async function handleTriageRequest(req, res) {
 	};
 
 	recordPruneObservation({
-		endpoint: "/triage",
+		endpoint: endpointLabel,
 		retrievedCount: limitedRetrievedDocs.length,
 		prunedCount: limitedPrunedDocs.length,
 		pruneMeta
 	});
 
-	return res.json({
-		request_id: req.requestId,
+	return {
 		...responsePayload,
 		latency_ms: totalLatencyMs,
 		latency_target_ms: LATENCY_TARGET_MS,
@@ -2029,6 +2052,27 @@ async function handleTriageRequest(req, res) {
 		stage_latencies_ms: stageLatencies,
 		stage_budget_ms: TRIAGE_STAGE_BUDGET_MS,
 		stage_budget_met: evaluateStageBudget(stageLatencies)
+	};
+}
+
+async function handleTriageRequest(req, res) {
+	const { query, limit } = validateRetrievePayload(req.body);
+	const responsePayload = await runTriagePipeline(query, limit, "/triage");
+
+	return res.json({
+		request_id: req.requestId,
+		...responsePayload
+	});
+}
+
+async function handleVoiceTriageRequest(req, res) {
+	const { transcript, limit } = validateVoiceTriagePayload(req.body);
+	const responsePayload = await runTriagePipeline(transcript, limit, "/triage/voice");
+
+	return res.json({
+		request_id: req.requestId,
+		...responsePayload,
+		query: transcript
 	});
 }
 
@@ -2087,7 +2131,8 @@ app.get("/", (req, res) => {
 			"POST /retrieve",
 			"POST /search/chunks",
 			"POST /ingest/unstructured",
-			"POST /triage"
+			"POST /triage",
+			"POST /triage/voice"
 		]
 	});
 });
@@ -2105,6 +2150,7 @@ app.post("/retrieve", asyncHandler(handleRetrieveRequest));
 app.post("/search/chunks", asyncHandler(handleChunkSearchRequest));
 app.post("/ingest/unstructured", asyncHandler(handleUnstructuredIngestRequest));
 app.post("/triage", asyncHandler(handleTriageRequest));
+app.post("/triage/voice", asyncHandler(handleVoiceTriageRequest));
 
 app.use((req, res) => {
 	res.status(404).json({

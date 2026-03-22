@@ -1,4 +1,4 @@
-function StatusSection({ status }) {
+function StatusSection({ status, message }) {
   if (status === "loading") {
     return (
       <section className="card status-section loading">
@@ -13,7 +13,7 @@ function StatusSection({ status }) {
   if (status === "error") {
     return (
       <section className="card status-section error">
-        <p>Something went wrong</p>
+        <p>{message || "Something went wrong"}</p>
       </section>
     );
   }

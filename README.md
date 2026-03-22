@@ -61,7 +61,7 @@ We use **Scaledown API** to:
 ## 🖥️ Frontend Features
 
 * 📝 Text input for symptoms
-* 🎤 Voice input (optional)
+* 🎤 Voice input via browser streaming STT (Web Speech API)
 * 📂 JSON upload (optional)
 * 🚀 Analyze button
 * ⏳ Loading indicator
@@ -76,7 +76,21 @@ We use **Scaledown API** to:
 * Keyword + metadata-based retrieval
 * Scaledown API integration
 * Rule-based decision engine
+* Dual triage ingress:
+   * `POST /triage` for stable text requests
+   * `POST /triage/voice` for transcript requests from streaming STT
 * Fast API response (<500ms target)
+
+Voice endpoint contract:
+
+```json
+{
+   "transcript": "severe chest pain with sweating and left arm pressure",
+   "limit": 8
+}
+```
+
+`POST /triage/voice` returns the same triage response structure as `POST /triage`.
 
 ---
 

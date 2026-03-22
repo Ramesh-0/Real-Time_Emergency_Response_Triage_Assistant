@@ -30,6 +30,51 @@ function normalizeSeverity(value) {
 	return value.trim().toUpperCase();
 }
 
+function valueKind(value) {
+	if (Array.isArray(value)) {
+		return "array";
+	}
+
+	if (value === null) {
+		return "null";
+	}
+
+	return typeof value;
+}
+
+function assertSameResponseStructure(left, right, pathLabel = "response") {
+	const leftKind = valueKind(left);
+	const rightKind = valueKind(right);
+
+	assert.equal(
+		rightKind,
+		leftKind,
+		`type mismatch at ${pathLabel}: expected ${leftKind}, received ${rightKind}`
+	);
+
+	if (leftKind === "array") {
+		if (left.length === 0 || right.length === 0) {
+			return;
+		}
+
+		assertSameResponseStructure(left[0], right[0], `${pathLabel}[0]`);
+		return;
+	}
+
+	if (leftKind !== "object") {
+		return;
+	}
+
+	const leftKeys = Object.keys(left).sort();
+	const rightKeys = Object.keys(right).sort();
+
+	assert.deepEqual(rightKeys, leftKeys, `key mismatch at ${pathLabel}`);
+
+	for (const key of leftKeys) {
+		assertSameResponseStructure(left[key], right[key], `${pathLabel}.${key}`);
+	}
+}
+
 function leakageCount(meta) {
 	if (!meta || typeof meta !== "object") {
 		return 0;
@@ -99,6 +144,29 @@ async function postTriage(baseUrl, query, limit) {
 	const response = await axios.post(
 		`${baseUrl}/triage`,
 		{ query, limit },
+		{
+			headers: {
+				"Content-Type": "application/json"
+			},
+			timeout: 5000,
+			validateStatus: () => true
+		}
+	);
+
+	if (response.status >= 400) {
+		const message = response.data && response.data.error
+			? response.data.error
+			: `HTTP ${response.status}`;
+		throw new Error(message);
+	}
+
+	return response.data;
+}
+
+async function postVoiceTriage(baseUrl, transcript, limit) {
+	const response = await axios.post(
+		`${baseUrl}/triage/voice`,
+		{ transcript, limit },
 		{
 			headers: {
 				"Content-Type": "application/json"
@@ -238,6 +306,24 @@ test("critical triage regressions", async (t) => {
 			}
 		});
 	}
+});
+
+test("voice triage matches text triage structure", async () => {
+	const sharedQuery = "severe chest pain with sweating and left arm pressure";
+	const textPayload = await postTriage(baseUrl, sharedQuery, requestLimit);
+	const voicePayload = await postVoiceTriage(baseUrl, sharedQuery, requestLimit);
+
+	assertSameResponseStructure(textPayload, voicePayload);
+	assert.equal(
+		normalizeText(voicePayload?.result?.diagnosis),
+		normalizeText(textPayload?.result?.diagnosis),
+		"voice diagnosis should match text diagnosis for same utterance"
+	);
+	assert.equal(
+		normalizeSeverity(voicePayload?.result?.severity),
+		normalizeSeverity(textPayload?.result?.severity),
+		"voice severity should match text severity for same utterance"
+	);
 });
 
 process.on("unhandledRejection", (error) => {

@@ -10,11 +10,20 @@ import { motion } from "framer-motion";
 function App() {
   const {
     inputText,
-    setInputText,
+    handleInputChange,
     file,
     setFile,
     status,
     result,
+    canAnalyze,
+    isListening,
+    isSpeechSupported,
+    liveTranscript,
+    speechError,
+    inputMode,
+    errorMessage,
+    startVoiceCapture,
+    stopVoiceCapture,
     analyzeCase,
   } = useTriage();
 
@@ -39,14 +48,21 @@ function App() {
           >
             <InputSection
               inputText={inputText}
-              onInputChange={setInputText}
+              onInputChange={handleInputChange}
               onFileChange={setFile}
+              onStartVoiceCapture={startVoiceCapture}
+              onStopVoiceCapture={stopVoiceCapture}
               onAnalyze={analyzeCase}
               isLoading={status === "loading"}
               file={file}
-              status={status}
+              canAnalyze={canAnalyze}
+              isListening={isListening}
+              isSpeechSupported={isSpeechSupported}
+              liveTranscript={liveTranscript}
+              speechError={speechError}
+              inputMode={inputMode}
             />
-            <StatusSection status={status} />
+            <StatusSection status={status} message={errorMessage} />
             <RecentCasesCard />
             <SystemStatusCard />
           </motion.div>
