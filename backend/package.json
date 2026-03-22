@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "benchmark:index": "node scripts/benchmark-index.js",
+    "benchmark:triage": "node scripts/benchmark-triage-latency.js",
+    "evaluate:noise": "node scripts/evaluate-noise-reduction.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

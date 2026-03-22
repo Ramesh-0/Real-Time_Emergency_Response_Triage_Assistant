@@ -80,6 +80,37 @@ We use **Scaledown API** to:
 
 ---
 
+## ⏱️ Latency SLA Benchmark
+
+Benchmark script now measures triage latency in two views:
+
+* **Cold start (separate):** process startup + first triage request
+* **Warm sustained traffic:** warm-up phase followed by concurrent load and p95 checks
+
+Per-triage stage timings and budgets are included in the API response and benchmark report:
+
+* `retrieve`
+* `prune`
+* `decide`
+* `response`
+
+Run benchmark:
+
+```bash
+cd backend
+npm run benchmark:triage
+```
+
+Report output:
+
+* `backend/reports/triage-latency-report.md`
+
+SLA rule enforced by benchmark:
+
+* Warm traffic **p95 < 500 ms** (non-zero exit code on failure)
+
+---
+
 ## 📂 Project Structure
 
 ```

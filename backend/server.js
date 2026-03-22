@@ -1,5 +1,6 @@
 require("dotenv").config();
 
+const { performance } = require("perf_hooks");
 const path = require("path");
 const express = require("express");
 const cors = require("cors");
@@ -51,10 +52,50 @@ const RATE_LIMIT_WINDOW_MS = parsePositiveInteger(process.env.RATE_LIMIT_WINDOW_
 const RATE_LIMIT_MAX = parsePositiveInteger(process.env.RATE_LIMIT_MAX, 120);
 const SCALEDOWN_TIMEOUT_MS = parsePositiveInteger(process.env.SCALEDOWN_TIMEOUT_MS, 8000);
 const LATENCY_TARGET_MS = parsePositiveInteger(process.env.LATENCY_TARGET_MS, 500);
+const LATENCY_BUDGET_RETRIEVE_MS = parsePositiveInteger(
+	process.env.LATENCY_BUDGET_RETRIEVE_MS,
+	Math.max(1, Math.round(LATENCY_TARGET_MS * 0.28))
+);
+const LATENCY_BUDGET_PRUNE_MS = parsePositiveInteger(
+	process.env.LATENCY_BUDGET_PRUNE_MS,
+	Math.max(1, Math.round(LATENCY_TARGET_MS * 0.44))
+);
+const LATENCY_BUDGET_DECIDE_MS = parsePositiveInteger(
+	process.env.LATENCY_BUDGET_DECIDE_MS,
+	Math.max(1, Math.round(LATENCY_TARGET_MS * 0.2))
+);
+const LATENCY_BUDGET_RESPONSE_MS = parsePositiveInteger(
+	process.env.LATENCY_BUDGET_RESPONSE_MS,
+	Math.max(1, LATENCY_TARGET_MS - LATENCY_BUDGET_RETRIEVE_MS - LATENCY_BUDGET_PRUNE_MS - LATENCY_BUDGET_DECIDE_MS)
+);
+const TRIAGE_STAGE_BUDGET_MS = Object.freeze({
+	retrieve: LATENCY_BUDGET_RETRIEVE_MS,
+	prune: LATENCY_BUDGET_PRUNE_MS,
+	decide: LATENCY_BUDGET_DECIDE_MS,
+	response: LATENCY_BUDGET_RESPONSE_MS
+});
+const SCALEDOWN_EFFECTIVE_TIMEOUT_MS = Math.max(
+	50,
+	Math.min(SCALEDOWN_TIMEOUT_MS, Math.floor(TRIAGE_STAGE_BUDGET_MS.prune * 0.8))
+);
 const SCALEDOWN_MIN_CANDIDATES = parsePositiveInteger(process.env.SCALEDOWN_MIN_CANDIDATES, 4);
 const SCALEDOWN_FORCE_REMOTE = parseBoolean(process.env.SCALEDOWN_FORCE_REMOTE, false);
 const LOCAL_PRUNE_TOP_K = parsePositiveInteger(process.env.LOCAL_PRUNE_TOP_K, 8);
 const MAX_DOC_AGE_DAYS = parsePositiveInteger(process.env.MAX_DOC_AGE_DAYS, 3650);
+const DOC_RECENCY_FILTER_ENABLED = parseBoolean(process.env.DOC_RECENCY_FILTER_ENABLED, true);
+const DOC_TYPE_FILTER_ENABLED = parseBoolean(process.env.DOC_TYPE_FILTER_ENABLED, true);
+const DOC_STRICT_TYPE_FILTER_ON_CRITICAL = parseBoolean(
+	process.env.DOC_STRICT_TYPE_FILTER_ON_CRITICAL,
+	true
+);
+const DOC_CRITICAL_RECENCY_DAYS = Math.min(
+	MAX_DOC_AGE_DAYS,
+	parsePositiveInteger(process.env.DOC_CRITICAL_RECENCY_DAYS, 365)
+);
+const DOC_NON_CRITICAL_RECENCY_DAYS = Math.min(
+	MAX_DOC_AGE_DAYS,
+	parsePositiveInteger(process.env.DOC_NON_CRITICAL_RECENCY_DAYS, MAX_DOC_AGE_DAYS)
+);
 const API_JSON_LIMIT = process.env.API_JSON_LIMIT || "5mb";
 const MIN_SEARCHABLE_CHUNKS = parsePositiveInteger(process.env.MIN_SEARCHABLE_CHUNKS, 10000);
 const INGEST_DEFAULT_CHUNK_SIZE_WORDS = parsePositiveInteger(process.env.INGEST_DEFAULT_CHUNK_SIZE_WORDS, 180);
@@ -143,15 +184,44 @@ app.use(express.json({ limit: API_JSON_LIMIT }));
 
 const KEYWORD_TO_TYPE = {
 	chest: "cardiology",
+	cardiac: "cardiology",
+	arm: "cardiology",
+	sweating: "cardiology",
+	pressure: "cardiology",
 	ecg: "cardiology",
 	heart: "cardiology",
+	ischemia: "cardiology",
 	tooth: "dental",
 	gum: "dental",
 	jaw: "dental",
+	abscess: "dental",
+	wisdom: "dental",
+	molar: "dental",
 	fever: "general",
 	cough: "general",
-	headache: "general"
+	headache: "general",
+	fatigue: "general",
+	rash: "general",
+	throat: "general"
 };
+
+const CRITICAL_QUERY_TOKENS = new Set([
+	"severe",
+	"acute",
+	"chest",
+	"sweating",
+	"breath",
+	"shortness",
+	"ecg",
+	"cardiac",
+	"stroke",
+	"slur",
+	"droop",
+	"weakness",
+	"unconscious",
+	"collapse",
+	"bleeding"
+]);
 
 const CASE_BY_ID = new Map(
 	dataset
@@ -220,6 +290,23 @@ function tokenize(text) {
 	}
 
 	return text.toLowerCase().match(/[a-z0-9]+/g) || [];
+}
+
+function roundLatencyMs(value) {
+	if (!Number.isFinite(value)) {
+		return 0;
+	}
+
+	return Number(value.toFixed(2));
+}
+
+function evaluateStageBudget(stageLatencies) {
+	return {
+		retrieve: stageLatencies.retrieve <= TRIAGE_STAGE_BUDGET_MS.retrieve,
+		prune: stageLatencies.prune <= TRIAGE_STAGE_BUDGET_MS.prune,
+		decide: stageLatencies.decide <= TRIAGE_STAGE_BUDGET_MS.decide,
+		response: stageLatencies.response <= TRIAGE_STAGE_BUDGET_MS.response
+	};
 }
 
 function createDocIdentity(doc) {
@@ -306,6 +393,207 @@ function calculateAverageRelevance(query, docs) {
 	const total = docs.reduce((sum, doc) => sum + computeRelevanceScore(queryTokens, doc), 0);
 
 	return Number((total / docs.length).toFixed(2));
+}
+
+function normalizeType(typeValue) {
+	if (typeof typeValue !== "string") {
+		return "";
+	}
+
+	return typeValue.trim().toLowerCase();
+}
+
+function inferQueryTypes(queryTokens, docs = []) {
+	const inferredTypes = new Set();
+	const knownTypes = new Set();
+
+	for (const doc of docs) {
+		const normalizedDocType = normalizeType(doc && doc.type);
+
+		if (normalizedDocType) {
+			knownTypes.add(normalizedDocType);
+		}
+	}
+
+	for (const token of queryTokens) {
+		const mappedType = KEYWORD_TO_TYPE[token];
+
+		if (mappedType) {
+			inferredTypes.add(mappedType);
+		}
+
+		if (knownTypes.has(token)) {
+			inferredTypes.add(token);
+		}
+	}
+
+	return [...inferredTypes];
+}
+
+function isCriticalQuery(queryTokens) {
+	if (!Array.isArray(queryTokens) || queryTokens.length === 0) {
+		return false;
+	}
+
+	const tokenSet = new Set(queryTokens);
+
+	if (tokenSet.has("emergency") || tokenSet.has("urgent")) {
+		return true;
+	}
+
+	let criticalSignalCount = 0;
+
+	for (const token of tokenSet) {
+		if (CRITICAL_QUERY_TOKENS.has(token)) {
+			criticalSignalCount += 1;
+		}
+	}
+
+	if (tokenSet.has("severe") || tokenSet.has("acute")) {
+		return criticalSignalCount >= 1;
+	}
+
+	return criticalSignalCount >= 2;
+}
+
+function calculateDocAgeDays(doc, nowEpoch) {
+	const docEpoch = toEpoch(doc && doc.date);
+
+	if (docEpoch === 0) {
+		return null;
+	}
+
+	return Math.floor((nowEpoch - docEpoch) / ONE_DAY_MS);
+}
+
+function evaluateFilterLeakage(docs, policy, nowEpoch) {
+	const allowedTypeSet = new Set(policy.allowedTypes.map(normalizeType));
+	let unrelatedTypeCount = 0;
+	let staleRecordCount = 0;
+
+	for (const doc of docs) {
+		const normalizedDocType = normalizeType(doc && doc.type);
+		const shouldCheckType = policy.applyTypeFilter && allowedTypeSet.size > 0;
+
+		if (shouldCheckType && normalizedDocType && !allowedTypeSet.has(normalizedDocType)) {
+			unrelatedTypeCount += 1;
+		}
+
+		if (Number.isFinite(policy.maxAgeDays) && policy.maxAgeDays > 0) {
+			const docAgeDays = calculateDocAgeDays(doc, nowEpoch);
+
+			if (docAgeDays !== null && docAgeDays > policy.maxAgeDays) {
+				staleRecordCount += 1;
+			}
+		}
+	}
+
+	return {
+		unrelatedTypeCount,
+		staleRecordCount
+	};
+}
+
+function buildNoiseFilterPolicy(query, docs) {
+	const queryTokens = tokenize(query);
+	const inferredTypes = inferQueryTypes(queryTokens, docs);
+	const criticalQuery = isCriticalQuery(queryTokens);
+	const maxAgeDays = DOC_RECENCY_FILTER_ENABLED
+		? Math.min(criticalQuery ? DOC_CRITICAL_RECENCY_DAYS : DOC_NON_CRITICAL_RECENCY_DAYS, MAX_DOC_AGE_DAYS)
+		: null;
+	const applyTypeFilter = DOC_TYPE_FILTER_ENABLED && inferredTypes.length > 0;
+	const strictTypeCheck = applyTypeFilter && criticalQuery && DOC_STRICT_TYPE_FILTER_ON_CRITICAL;
+
+	return {
+		queryTokens,
+		inferredTypes,
+		allowedTypes: inferredTypes,
+		criticalQuery,
+		maxAgeDays,
+		applyTypeFilter,
+		strictTypeCheck
+	};
+}
+
+function applyNoiseReductionFilters(query, docs, options = {}) {
+	const safeDocs = Array.isArray(docs) ? docs : [];
+	const dedupedDocs = dedupeDocs(safeDocs);
+	const policy = options.policy || buildNoiseFilterPolicy(query, dedupedDocs);
+	const allowUnfilteredFallback = options.allowUnfilteredFallback !== false;
+	const nowEpoch = Date.now();
+
+	let workingDocs = dedupedDocs;
+	let recencyFilteredOutCount = 0;
+	let typeFilteredOutCount = 0;
+
+	if (Number.isFinite(policy.maxAgeDays) && policy.maxAgeDays > 0) {
+		const beforeRecencyCount = workingDocs.length;
+
+		workingDocs = workingDocs.filter((doc) => {
+			const docAgeDays = calculateDocAgeDays(doc, nowEpoch);
+
+			if (docAgeDays === null) {
+				return true;
+			}
+
+			return docAgeDays <= policy.maxAgeDays;
+		});
+
+		recencyFilteredOutCount = Math.max(0, beforeRecencyCount - workingDocs.length);
+	}
+
+	if (policy.applyTypeFilter && policy.allowedTypes.length > 0) {
+		const allowedTypeSet = new Set(policy.allowedTypes.map(normalizeType));
+		const beforeTypeCount = workingDocs.length;
+
+		workingDocs = workingDocs.filter((doc) => {
+			const normalizedDocType = normalizeType(doc && doc.type);
+
+			if (!normalizedDocType) {
+				return false;
+			}
+
+			return allowedTypeSet.has(normalizedDocType);
+		});
+
+		typeFilteredOutCount = Math.max(0, beforeTypeCount - workingDocs.length);
+	}
+
+	let fallbackToUnfiltered = false;
+
+	if (
+		workingDocs.length === 0 &&
+		dedupedDocs.length > 0 &&
+		allowUnfilteredFallback &&
+		!policy.strictTypeCheck
+	) {
+		workingDocs = dedupedDocs;
+		fallbackToUnfiltered = true;
+	}
+
+	const leakage = evaluateFilterLeakage(workingDocs, policy, nowEpoch);
+
+	return {
+		docs: workingDocs,
+		policy,
+		meta: {
+			checks_applied: {
+				recency: Number.isFinite(policy.maxAgeDays) && policy.maxAgeDays > 0,
+				type: policy.applyTypeFilter && policy.allowedTypes.length > 0
+			},
+			critical_query: policy.criticalQuery,
+			inferred_types: policy.inferredTypes,
+			allowed_types: policy.allowedTypes,
+			strict_type_check: policy.strictTypeCheck,
+			max_age_days: policy.maxAgeDays,
+			recency_filtered_out_count: recencyFilteredOutCount,
+			type_filtered_out_count: typeFilteredOutCount,
+			total_filtered_out_count: recencyFilteredOutCount + typeFilteredOutCount,
+			fallback_to_unfiltered: fallbackToUnfiltered,
+			unrelated_type_leakage_count: leakage.unrelatedTypeCount,
+			stale_record_leakage_count: leakage.staleRecordCount
+		}
+	};
 }
 
 function validateRetrievePayload(payload) {
@@ -665,15 +953,23 @@ async function pruneWithScaledown(query, candidateDocs, targetCount) {
 		: [{ mode: "none", headers: {} }];
 
 	let lastError = null;
+	const scaledownAttemptStartedAt = performance.now();
 
 	for (const variant of authVariants) {
+		const elapsedMs = performance.now() - scaledownAttemptStartedAt;
+		const remainingTimeoutMs = Math.floor(SCALEDOWN_EFFECTIVE_TIMEOUT_MS - elapsedMs);
+
+		if (remainingTimeoutMs <= 20) {
+			break;
+		}
+
 		try {
 			const response = await axios.post(scaledownUrl, requestBody, {
 				headers: {
 					"Content-Type": "application/json",
 					...variant.headers
 				},
-				timeout: SCALEDOWN_TIMEOUT_MS
+				timeout: remainingTimeoutMs
 			});
 
 			const payload = response.data && typeof response.data === "object" ? response.data : {};
@@ -790,9 +1086,14 @@ async function pruneWithScaledown(query, candidateDocs, targetCount) {
 	}
 
 	const statusCode = lastError?.response?.status;
+	const scaledownElapsedMs = performance.now() - scaledownAttemptStartedAt;
+	const timeoutBudgetExceeded = scaledownElapsedMs >= SCALEDOWN_EFFECTIVE_TIMEOUT_MS;
+	const fallbackReason = timeoutBudgetExceeded ? "scaledown_timeout_budget_exceeded" : "scaledown_unavailable";
 	log("warn", "Scaledown pruning unavailable", {
 		statusCode: statusCode || null,
-		errorCode: lastError?.code || null
+		errorCode: lastError?.code || null,
+		timeout_budget_ms: SCALEDOWN_EFFECTIVE_TIMEOUT_MS,
+		elapsed_ms: roundLatencyMs(scaledownElapsedMs)
 	});
 
 	return {
@@ -802,7 +1103,7 @@ async function pruneWithScaledown(query, candidateDocs, targetCount) {
 			attemptedScaledown: true,
 			usedLocalFallback: true,
 			localFallbackCount: fallbackDocs.length,
-			reason: "scaledown_unavailable"
+			reason: fallbackReason
 		}
 	};
 }
@@ -891,12 +1192,20 @@ function asyncHandler(handler) {
 async function handleRetrieveRequest(req, res) {
 	const startedAt = Date.now();
 	const { query, limit } = validateRetrievePayload(req.body);
-	const retrievedDocs = retrieveDocuments(query, MAX_LIMIT);
+	const retrievedDocsRaw = retrieveDocuments(query, MAX_LIMIT);
+	const retrievedFilterResult = applyNoiseReductionFilters(query, retrievedDocsRaw, {
+		allowUnfilteredFallback: true
+	});
+	const retrievedDocs = retrievedFilterResult.docs;
 	const limitedRetrievedDocs = retrievedDocs.slice(0, limit);
 	const pruningCandidates = retrievedDocs.slice(0, Math.min(retrievedDocs.length, MAX_LIMIT));
 	const pruneTargetCount = computePruneTargetCount(query, limitedRetrievedDocs.length, pruningCandidates.length);
 	const { prunedDocs, pruneMeta } = await pruneWithScaledown(query, pruningCandidates, pruneTargetCount);
-	const limitedPrunedDocs = prunedDocs.slice(0, pruneTargetCount);
+	const prunedFilterResult = applyNoiseReductionFilters(query, prunedDocs, {
+		allowUnfilteredFallback: false,
+		policy: retrievedFilterResult.policy
+	});
+	const limitedPrunedDocs = prunedFilterResult.docs.slice(0, pruneTargetCount);
 	const retrievedAverageRelevance = calculateAverageRelevance(query, limitedRetrievedDocs);
 	const prunedAverageRelevance = calculateAverageRelevance(query, limitedPrunedDocs);
 	const latencyMs = Date.now() - startedAt;
@@ -915,7 +1224,12 @@ async function handleRetrieveRequest(req, res) {
 			pruned_average_score: prunedAverageRelevance,
 			delta: Number((prunedAverageRelevance - retrievedAverageRelevance).toFixed(2))
 		},
-		prune_meta: pruneMeta,
+		prune_meta: {
+			...pruneMeta,
+			post_prune_guardrail_removed_count: prunedFilterResult.meta.total_filtered_out_count
+		},
+		retrieval_filter_meta: retrievedFilterResult.meta,
+		post_prune_filter_meta: prunedFilterResult.meta,
 		retrieved_docs: limitedRetrievedDocs.map(toClientDoc),
 		pruned_context: limitedPrunedDocs.map(toClientDoc)
 	});
@@ -961,6 +1275,16 @@ function handleIndexStatsRequest(_req, res) {
 		min_searchable_chunks: MIN_SEARCHABLE_CHUNKS,
 		chunk_goal_met: stats.total_chunks >= MIN_SEARCHABLE_CHUNKS,
 		latency_target_ms: LATENCY_TARGET_MS,
+		noise_filter_config: {
+			recency_filter_enabled: DOC_RECENCY_FILTER_ENABLED,
+			type_filter_enabled: DOC_TYPE_FILTER_ENABLED,
+			strict_type_filter_on_critical: DOC_STRICT_TYPE_FILTER_ON_CRITICAL,
+			critical_recency_days: DOC_CRITICAL_RECENCY_DAYS,
+			non_critical_recency_days: DOC_NON_CRITICAL_RECENCY_DAYS,
+			max_doc_age_days: MAX_DOC_AGE_DAYS
+		},
+		triage_stage_budget_ms: TRIAGE_STAGE_BUDGET_MS,
+		scaledown_effective_timeout_ms: SCALEDOWN_EFFECTIVE_TIMEOUT_MS,
 		chunk_store_path: INGEST_CHUNK_STORE_PATH
 	});
 }
@@ -1016,37 +1340,75 @@ async function handleUnstructuredIngestRequest(req, res) {
 }
 
 async function handleTriageRequest(req, res) {
-	const startedAt = Date.now();
+	const startedAt = performance.now();
 	const { query, limit } = validateRetrievePayload(req.body);
-	const retrievedDocs = retrieveDocuments(query, MAX_LIMIT);
+
+	const retrieveStartedAt = performance.now();
+	const retrievedDocsRaw = retrieveDocuments(query, MAX_LIMIT);
+	const retrievedFilterResult = applyNoiseReductionFilters(query, retrievedDocsRaw, {
+		allowUnfilteredFallback: true
+	});
+	const retrievedDocs = retrievedFilterResult.docs;
 	const limitedRetrievedDocs = retrievedDocs.slice(0, limit);
 	const pruningCandidates = retrievedDocs.slice(0, Math.min(retrievedDocs.length, MAX_LIMIT));
 	const pruneTargetCount = computePruneTargetCount(query, limitedRetrievedDocs.length, pruningCandidates.length);
+	const retrieveLatencyMs = performance.now() - retrieveStartedAt;
+
+	const pruneStartedAt = performance.now();
 	const { prunedDocs, pruneMeta } = await pruneWithScaledown(query, pruningCandidates, pruneTargetCount);
-	const limitedPrunedDocs = prunedDocs.slice(0, pruneTargetCount);
+	const prunedFilterResult = applyNoiseReductionFilters(query, prunedDocs, {
+		allowUnfilteredFallback: false,
+		policy: retrievedFilterResult.policy
+	});
+	const limitedPrunedDocs = prunedFilterResult.docs.slice(0, pruneTargetCount);
+	const pruneLatencyMs = performance.now() - pruneStartedAt;
+
+	const decideStartedAt = performance.now();
 	const result = buildDecision(query, limitedPrunedDocs);
 	const retrievedAverageRelevance = calculateAverageRelevance(query, limitedRetrievedDocs);
 	const prunedAverageRelevance = calculateAverageRelevance(query, limitedPrunedDocs);
-	const latencyMs = Date.now() - startedAt;
+	const decideLatencyMs = performance.now() - decideStartedAt;
 
-	return res.json({
+	const responseStartedAt = performance.now();
+	const responsePayload = {
 		query,
 		retrieved_count: retrievedDocs.length,
 		returned_retrieved_count: limitedRetrievedDocs.length,
 		local_pruned_count: pruneMeta.localFallbackCount,
 		prune_target_count: pruneTargetCount,
 		pruned_count: limitedPrunedDocs.length,
-		latency_ms: latencyMs,
-		latency_target_ms: LATENCY_TARGET_MS,
 		relevance_meta: {
 			retrieved_average_score: retrievedAverageRelevance,
 			pruned_average_score: prunedAverageRelevance,
 			delta: Number((prunedAverageRelevance - retrievedAverageRelevance).toFixed(2))
 		},
-		prune_meta: pruneMeta,
+		prune_meta: {
+			...pruneMeta,
+			post_prune_guardrail_removed_count: prunedFilterResult.meta.total_filtered_out_count
+		},
+		retrieval_filter_meta: retrievedFilterResult.meta,
+		post_prune_filter_meta: prunedFilterResult.meta,
 		retrieved_docs: limitedRetrievedDocs.map(toClientDoc),
 		pruned_context: limitedPrunedDocs.map(toClientDoc),
 		result
+	};
+	const responseLatencyMs = performance.now() - responseStartedAt;
+	const totalLatencyMs = roundLatencyMs(performance.now() - startedAt);
+	const stageLatencies = {
+		retrieve: roundLatencyMs(retrieveLatencyMs),
+		prune: roundLatencyMs(pruneLatencyMs),
+		decide: roundLatencyMs(decideLatencyMs),
+		response: roundLatencyMs(responseLatencyMs)
+	};
+
+	return res.json({
+		...responsePayload,
+		latency_ms: totalLatencyMs,
+		latency_target_ms: LATENCY_TARGET_MS,
+		latency_target_met: totalLatencyMs < LATENCY_TARGET_MS,
+		stage_latencies_ms: stageLatencies,
+		stage_budget_ms: TRIAGE_STAGE_BUDGET_MS,
+		stage_budget_met: evaluateStageBudget(stageLatencies)
 	});
 }
 
@@ -1111,6 +1473,13 @@ async function startServer() {
 			node_env: process.env.NODE_ENV || "development",
 			total_searchable_chunks: hybridIndex.size(),
 			chunk_goal_met: hybridIndex.size() >= MIN_SEARCHABLE_CHUNKS,
+			doc_recency_filter_enabled: DOC_RECENCY_FILTER_ENABLED,
+			doc_type_filter_enabled: DOC_TYPE_FILTER_ENABLED,
+			doc_strict_type_filter_on_critical: DOC_STRICT_TYPE_FILTER_ON_CRITICAL,
+			doc_critical_recency_days: DOC_CRITICAL_RECENCY_DAYS,
+			doc_non_critical_recency_days: DOC_NON_CRITICAL_RECENCY_DAYS,
+			triage_stage_budget_ms: TRIAGE_STAGE_BUDGET_MS,
+			scaledown_effective_timeout_ms: SCALEDOWN_EFFECTIVE_TIMEOUT_MS,
 			scaledown_min_candidates: SCALEDOWN_MIN_CANDIDATES,
 			scaledown_force_remote: SCALEDOWN_FORCE_REMOTE
 		});
