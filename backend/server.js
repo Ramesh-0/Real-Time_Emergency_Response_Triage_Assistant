@@ -1,6 +1,8 @@
 require("dotenv").config();
 
 const { performance } = require("perf_hooks");
+const { AsyncLocalStorage } = require("async_hooks");
+const { randomUUID } = require("crypto");
 const path = require("path");
 const express = require("express");
 const cors = require("cors");
@@ -41,6 +43,16 @@ function parseBoolean(value, fallback = false) {
 	}
 
 	return fallback;
+}
+
+function parseRatio(value, fallback) {
+	const parsed = Number.parseFloat(value);
+
+	if (!Number.isFinite(parsed)) {
+		return fallback;
+	}
+
+	return Math.max(0, Math.min(parsed, 1));
 }
 
 const app = express();
@@ -112,6 +124,18 @@ const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || "")
 	.filter(Boolean);
 const SAFE_DEFAULT_LIMIT = Math.min(DEFAULT_LIMIT, MAX_LIMIT);
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const OBS_LATENCY_WINDOW_SIZE = parsePositiveInteger(process.env.OBS_LATENCY_WINDOW_SIZE, 300);
+const OBS_ERROR_RATE_WINDOW_SIZE = parsePositiveInteger(process.env.OBS_ERROR_RATE_WINDOW_SIZE, 300);
+const OBS_PRUNE_RATIO_WINDOW_SIZE = parsePositiveInteger(process.env.OBS_PRUNE_RATIO_WINDOW_SIZE, 300);
+const OBS_EXTERNAL_PRUNE_WINDOW_SIZE = parsePositiveInteger(process.env.OBS_EXTERNAL_PRUNE_WINDOW_SIZE, 200);
+const ALERT_P95_THRESHOLD_MS = parsePositiveInteger(process.env.ALERT_P95_THRESHOLD_MS, LATENCY_TARGET_MS);
+const ALERT_P95_MIN_SAMPLES = parsePositiveInteger(process.env.ALERT_P95_MIN_SAMPLES, 30);
+const ALERT_PRUNE_OUTAGE_MIN_ATTEMPTS = parsePositiveInteger(process.env.ALERT_PRUNE_OUTAGE_MIN_ATTEMPTS, 5);
+const ALERT_PRUNE_OUTAGE_AVAILABILITY_THRESHOLD = parseRatio(
+	process.env.ALERT_PRUNE_OUTAGE_AVAILABILITY_THRESHOLD,
+	0
+);
+const requestContextStorage = new AsyncLocalStorage();
 
 class HttpError extends Error {
 	constructor(statusCode, message) {
@@ -122,10 +146,15 @@ class HttpError extends Error {
 }
 
 function log(level, message, metadata = {}) {
+	const requestContext = requestContextStorage.getStore();
+	const contextualMetadata = requestContext && requestContext.requestId
+		? { request_id: requestContext.requestId }
+		: {};
 	const entry = {
 		timestamp: new Date().toISOString(),
 		level,
 		message,
+		...contextualMetadata,
 		...metadata
 	};
 
@@ -147,6 +176,49 @@ function log(level, message, metadata = {}) {
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
 
+app.use((req, res, next) => {
+	const requestId = resolveRequestId(req);
+	const startedAt = performance.now();
+	const requestPath = req.originalUrl || req.url || req.path || "unknown";
+
+	req.requestId = requestId;
+	res.setHeader("x-request-id", requestId);
+
+	requestContextStorage.run({ requestId }, () => {
+		log("info", "HTTP request started", {
+			event: "request_started",
+			http: {
+				method: req.method,
+				path: requestPath
+			}
+		});
+
+		res.on("finish", () => {
+			const endpointPath = req.path || requestPath;
+			const latencyMs = roundLatencyMs(performance.now() - startedAt);
+
+			recordHttpRequestObservation({
+				endpoint: endpointPath,
+				method: req.method,
+				statusCode: res.statusCode,
+				latencyMs
+			});
+
+			log("info", "HTTP request completed", {
+				event: "request_completed",
+				http: {
+					method: req.method,
+					path: endpointPath,
+					status_code: res.statusCode,
+					latency_ms: latencyMs
+				}
+			});
+		});
+
+		next();
+	});
+});
+
 app.use(helmet());
 
 app.use(
@@ -163,7 +235,8 @@ app.use(
 			return callback(new HttpError(403, "Origin is not allowed by CORS policy"));
 		},
 		methods: ["GET", "POST", "OPTIONS"],
-		allowedHeaders: ["Content-Type", "Authorization", "x-api-key"],
+		allowedHeaders: ["Content-Type", "Authorization", "x-api-key", "x-request-id"],
+		exposedHeaders: ["x-request-id"],
 		maxAge: 600
 	})
 );
@@ -298,6 +371,535 @@ function roundLatencyMs(value) {
 	}
 
 	return Number(value.toFixed(2));
+}
+
+function roundRatio(value) {
+	if (!Number.isFinite(value)) {
+		return 0;
+	}
+
+	return Number(value.toFixed(4));
+}
+
+function clampRatio(value) {
+	if (!Number.isFinite(value)) {
+		return 0;
+	}
+
+	return Math.max(0, Math.min(value, 1));
+}
+
+function percentile(values, ratio) {
+	if (!Array.isArray(values) || values.length === 0) {
+		return 0;
+	}
+
+	const normalizedRatio = Math.max(0, Math.min(ratio, 1));
+	const sortedValues = [...values].sort((left, right) => left - right);
+	const index = Math.min(
+		sortedValues.length - 1,
+		Math.floor((sortedValues.length - 1) * normalizedRatio)
+	);
+
+	return sortedValues[index];
+}
+
+function summarizeNumericWindow(values, roundValue = roundLatencyMs) {
+	if (!Array.isArray(values) || values.length === 0) {
+		return {
+			count: 0,
+			avg: 0,
+			p50: 0,
+			p95: 0,
+			max: 0
+		};
+	}
+
+	const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+
+	return {
+		count: values.length,
+		avg: roundValue(average),
+		p50: roundValue(percentile(values, 0.5)),
+		p95: roundValue(percentile(values, 0.95)),
+		max: roundValue(Math.max(...values))
+	};
+}
+
+function pushRollingValue(windowValues, nextValue, maxSize) {
+	if (!Array.isArray(windowValues) || !Number.isFinite(nextValue) || maxSize <= 0) {
+		return;
+	}
+
+	windowValues.push(nextValue);
+
+	if (windowValues.length > maxSize) {
+		windowValues.splice(0, windowValues.length - maxSize);
+	}
+}
+
+function incrementCounter(counterMap, key, amount = 1) {
+	const previous = counterMap.get(key) || 0;
+	counterMap.set(key, previous + amount);
+}
+
+function normalizeEndpointLabel(endpoint) {
+	if (typeof endpoint !== "string") {
+		return "unknown";
+	}
+
+	const trimmed = endpoint.trim();
+
+	if (!trimmed) {
+		return "unknown";
+	}
+
+	const pathOnly = trimmed.split("?")[0];
+
+	if (!pathOnly) {
+		return "unknown";
+	}
+
+	return pathOnly.startsWith("/") ? pathOnly : `/${pathOnly}`;
+}
+
+function createAlertState(name) {
+	return {
+		name,
+		active: false,
+		active_since: null,
+		last_evaluated_at: null,
+		details: {}
+	};
+}
+
+function createEndpointMetricState(endpoint) {
+	return {
+		endpoint,
+		request_count: 0,
+		server_error_count: 0,
+		latency_ms_window: [],
+		error_flag_window: [],
+		prune_reduction_ratio_window: []
+	};
+}
+
+const observabilityState = {
+	started_at: new Date().toISOString(),
+	request_counters: new Map(),
+	endpoint_metrics: new Map(),
+	external_prune: {
+		attempted_total: 0,
+		success_total: 0,
+		local_fallback_total: 0,
+		recent_attempt_outcomes: []
+	},
+	alerts: {
+		p95_latency_breach: createAlertState("p95_latency_breach"),
+		pruning_outage: createAlertState("pruning_outage")
+	}
+};
+
+function getEndpointMetricState(endpoint) {
+	const normalizedEndpoint = normalizeEndpointLabel(endpoint);
+
+	if (!observabilityState.endpoint_metrics.has(normalizedEndpoint)) {
+		observabilityState.endpoint_metrics.set(
+			normalizedEndpoint,
+			createEndpointMetricState(normalizedEndpoint)
+		);
+	}
+
+	return observabilityState.endpoint_metrics.get(normalizedEndpoint);
+}
+
+function getExternalPruneWindowSnapshot() {
+	const attempts = observabilityState.external_prune.recent_attempt_outcomes;
+	const attemptCount = attempts.length;
+	const successCount = attempts.reduce((sum, wasSuccessful) => {
+		return sum + (wasSuccessful ? 1 : 0);
+	}, 0);
+	const availability = attemptCount === 0 ? 1 : successCount / attemptCount;
+
+	return {
+		attempt_count: attemptCount,
+		success_count: successCount,
+		availability
+	};
+}
+
+function updateAlertState(alertKey, isActive, details) {
+	const alertState = observabilityState.alerts[alertKey];
+
+	if (!alertState) {
+		return;
+	}
+
+	const evaluatedAt = new Date().toISOString();
+	const safeDetails = details && typeof details === "object" ? details : {};
+
+	if (alertState.active !== isActive) {
+		const previouslyActiveSince = alertState.active_since;
+		alertState.active = isActive;
+		alertState.active_since = isActive ? evaluatedAt : null;
+
+		if (isActive) {
+			log("warn", "Observability alert triggered", {
+				event: "alert_triggered",
+				alert: alertState.name,
+				active_since: alertState.active_since,
+				details: safeDetails
+			});
+		} else {
+			log("info", "Observability alert resolved", {
+				event: "alert_resolved",
+				alert: alertState.name,
+				active_since: previouslyActiveSince,
+				resolved_at: evaluatedAt,
+				details: safeDetails
+			});
+		}
+	}
+
+	alertState.last_evaluated_at = evaluatedAt;
+	alertState.details = safeDetails;
+}
+
+function evaluateObservabilityAlerts() {
+	const triageMetrics = getEndpointMetricState("/triage");
+	const triageLatency = summarizeNumericWindow(triageMetrics.latency_ms_window, roundLatencyMs);
+	const p95BreachActive =
+		triageLatency.count >= ALERT_P95_MIN_SAMPLES &&
+		triageLatency.p95 > ALERT_P95_THRESHOLD_MS;
+
+	updateAlertState("p95_latency_breach", p95BreachActive, {
+		threshold_ms: ALERT_P95_THRESHOLD_MS,
+		min_samples: ALERT_P95_MIN_SAMPLES,
+		sample_count: triageLatency.count,
+		p95_latency_ms: triageLatency.p95
+	});
+
+	const externalPruneWindow = getExternalPruneWindowSnapshot();
+	const outageActive =
+		externalPruneWindow.attempt_count >= ALERT_PRUNE_OUTAGE_MIN_ATTEMPTS &&
+		externalPruneWindow.availability <= ALERT_PRUNE_OUTAGE_AVAILABILITY_THRESHOLD;
+
+	updateAlertState("pruning_outage", outageActive, {
+		min_attempts: ALERT_PRUNE_OUTAGE_MIN_ATTEMPTS,
+		availability_threshold: ALERT_PRUNE_OUTAGE_AVAILABILITY_THRESHOLD,
+		attempt_count: externalPruneWindow.attempt_count,
+		availability: roundRatio(externalPruneWindow.availability)
+	});
+}
+
+function recordHttpRequestObservation({ endpoint, method, statusCode, latencyMs }) {
+	const normalizedEndpoint = normalizeEndpointLabel(endpoint);
+	const normalizedMethod = typeof method === "string" ? method.toUpperCase() : "UNKNOWN";
+	const numericStatusCode = Number.isInteger(statusCode)
+		? statusCode
+		: Number.parseInt(statusCode, 10) || 0;
+	const roundedLatencyMs = roundLatencyMs(latencyMs);
+	const counterKey = JSON.stringify({
+		endpoint: normalizedEndpoint,
+		method: normalizedMethod,
+		status_code: numericStatusCode
+	});
+
+	incrementCounter(observabilityState.request_counters, counterKey, 1);
+
+	const endpointMetrics = getEndpointMetricState(normalizedEndpoint);
+	endpointMetrics.request_count += 1;
+
+	if (numericStatusCode >= 500) {
+		endpointMetrics.server_error_count += 1;
+	}
+
+	pushRollingValue(endpointMetrics.latency_ms_window, roundedLatencyMs, OBS_LATENCY_WINDOW_SIZE);
+	pushRollingValue(
+		endpointMetrics.error_flag_window,
+		numericStatusCode >= 500 ? 1 : 0,
+		OBS_ERROR_RATE_WINDOW_SIZE
+	);
+
+	evaluateObservabilityAlerts();
+}
+
+function recordPruneObservation({ endpoint, retrievedCount, prunedCount, pruneMeta }) {
+	const endpointMetrics = getEndpointMetricState(endpoint);
+	const safeRetrievedCount = Number.isFinite(retrievedCount) ? Math.max(0, retrievedCount) : 0;
+	const safePrunedCount = Number.isFinite(prunedCount) ? Math.max(0, prunedCount) : 0;
+
+	if (safeRetrievedCount > 0) {
+		const reductionRatio = clampRatio((safeRetrievedCount - safePrunedCount) / safeRetrievedCount);
+		pushRollingValue(
+			endpointMetrics.prune_reduction_ratio_window,
+			reductionRatio,
+			OBS_PRUNE_RATIO_WINDOW_SIZE
+		);
+	}
+
+	if (pruneMeta && pruneMeta.attemptedScaledown) {
+		observabilityState.external_prune.attempted_total += 1;
+
+		if (pruneMeta.usedScaledown) {
+			observabilityState.external_prune.success_total += 1;
+		}
+
+		pushRollingValue(
+			observabilityState.external_prune.recent_attempt_outcomes,
+			pruneMeta.usedScaledown ? 1 : 0,
+			OBS_EXTERNAL_PRUNE_WINDOW_SIZE
+		);
+	}
+
+	if (pruneMeta && pruneMeta.usedLocalFallback) {
+		observabilityState.external_prune.local_fallback_total += 1;
+	}
+
+	evaluateObservabilityAlerts();
+}
+
+function buildEndpointMetricsSnapshot(endpoint) {
+	const endpointMetrics = getEndpointMetricState(endpoint);
+	const latencySummary = summarizeNumericWindow(endpointMetrics.latency_ms_window, roundLatencyMs);
+	const pruneSummary = summarizeNumericWindow(
+		endpointMetrics.prune_reduction_ratio_window,
+		roundRatio
+	);
+	const errorWindowCount = endpointMetrics.error_flag_window.length;
+	const serverErrorRatio = errorWindowCount === 0
+		? 0
+		: endpointMetrics.error_flag_window.reduce((sum, value) => sum + value, 0) / errorWindowCount;
+
+	return {
+		endpoint: endpointMetrics.endpoint,
+		request_count: endpointMetrics.request_count,
+		server_error_count: endpointMetrics.server_error_count,
+		latency_ms: latencySummary,
+		error_rate: roundRatio(serverErrorRatio),
+		prune_reduction_ratio: pruneSummary
+	};
+}
+
+function getAlertsSnapshot() {
+	evaluateObservabilityAlerts();
+
+	return Object.fromEntries(
+		Object.entries(observabilityState.alerts).map(([alertKey, alertState]) => {
+			return [
+				alertKey,
+				{
+					...alertState,
+					details: { ...alertState.details }
+				}
+			];
+		})
+	);
+}
+
+function buildObservabilityDashboardSnapshot() {
+	const endpointKeys = [...observabilityState.endpoint_metrics.keys()].sort((left, right) => {
+		return left.localeCompare(right);
+	});
+	const endpointMetrics = endpointKeys.map((endpoint) => buildEndpointMetricsSnapshot(endpoint));
+	const externalPruneWindow = getExternalPruneWindowSnapshot();
+	const alerts = getAlertsSnapshot();
+	const activeAlerts = Object.values(alerts)
+		.filter((alert) => alert.active)
+		.map((alert) => alert.name);
+
+	return {
+		generated_at: new Date().toISOString(),
+		started_at: observabilityState.started_at,
+		uptime_seconds: Math.floor(process.uptime()),
+		window_config: {
+			latency_window_size: OBS_LATENCY_WINDOW_SIZE,
+			error_rate_window_size: OBS_ERROR_RATE_WINDOW_SIZE,
+			prune_ratio_window_size: OBS_PRUNE_RATIO_WINDOW_SIZE,
+			external_prune_window_size: OBS_EXTERNAL_PRUNE_WINDOW_SIZE
+		},
+		thresholds: {
+			p95_latency_threshold_ms: ALERT_P95_THRESHOLD_MS,
+			p95_min_samples: ALERT_P95_MIN_SAMPLES,
+			pruning_outage_min_attempts: ALERT_PRUNE_OUTAGE_MIN_ATTEMPTS,
+			pruning_outage_availability_threshold: ALERT_PRUNE_OUTAGE_AVAILABILITY_THRESHOLD
+		},
+		endpoints: endpointMetrics,
+		external_prune: {
+			attempted_total: observabilityState.external_prune.attempted_total,
+			success_total: observabilityState.external_prune.success_total,
+			local_fallback_total: observabilityState.external_prune.local_fallback_total,
+			window_attempt_count: externalPruneWindow.attempt_count,
+			window_success_count: externalPruneWindow.success_count,
+			availability: roundRatio(externalPruneWindow.availability)
+		},
+		alerts,
+		active_alerts: activeAlerts
+	};
+}
+
+function escapePrometheusLabelValue(value) {
+	return String(value)
+		.replace(/\\/g, "\\\\")
+		.replace(/\"/g, '\\\"')
+		.replace(/\n/g, "\\n");
+}
+
+function toPrometheusMetric(name, labels, value) {
+	const numericValue = Number.isFinite(value) ? Number(value.toFixed(6)) : 0;
+	const labelEntries = labels && typeof labels === "object"
+		? Object.entries(labels).filter(([, labelValue]) => labelValue !== null && labelValue !== undefined)
+		: [];
+	const serializedLabels = labelEntries.length === 0
+		? ""
+		: `{${labelEntries
+			.map(([labelName, labelValue]) => {
+				return `${labelName}="${escapePrometheusLabelValue(labelValue)}"`;
+			})
+			.join(",")}}`;
+
+	return `${name}${serializedLabels} ${numericValue}`;
+}
+
+function renderPrometheusMetrics() {
+	const lines = [];
+	const dashboardSnapshot = buildObservabilityDashboardSnapshot();
+
+	lines.push(
+		"# HELP triage_http_requests_total Total observed HTTP requests by endpoint, method, and status code.",
+		"# TYPE triage_http_requests_total counter"
+	);
+
+	const requestCounterEntries = [...observabilityState.request_counters.entries()].sort((left, right) => {
+		return left[0].localeCompare(right[0]);
+	});
+
+	for (const [key, count] of requestCounterEntries) {
+		let labels = {};
+
+		try {
+			labels = JSON.parse(key);
+		} catch (_error) {
+			continue;
+		}
+
+		lines.push(
+			toPrometheusMetric(
+				"triage_http_requests_total",
+				{
+					endpoint: labels.endpoint || "unknown",
+					method: labels.method || "UNKNOWN",
+					status_code: labels.status_code || 0
+				},
+				count
+			)
+		);
+	}
+
+	lines.push(
+		"# HELP triage_http_latency_ms_avg Rolling average HTTP latency in milliseconds by endpoint.",
+		"# TYPE triage_http_latency_ms_avg gauge",
+		"# HELP triage_http_latency_ms_p95 Rolling p95 HTTP latency in milliseconds by endpoint.",
+		"# TYPE triage_http_latency_ms_p95 gauge",
+		"# HELP triage_http_error_rate Rolling server error rate by endpoint (0 to 1).",
+		"# TYPE triage_http_error_rate gauge",
+		"# HELP triage_prune_reduction_ratio_avg Rolling average prune reduction ratio by endpoint (0 to 1).",
+		"# TYPE triage_prune_reduction_ratio_avg gauge"
+	);
+
+	for (const endpointMetric of dashboardSnapshot.endpoints) {
+		lines.push(
+			toPrometheusMetric(
+				"triage_http_latency_ms_avg",
+				{ endpoint: endpointMetric.endpoint },
+				endpointMetric.latency_ms.avg
+			)
+		);
+		lines.push(
+			toPrometheusMetric(
+				"triage_http_latency_ms_p95",
+				{ endpoint: endpointMetric.endpoint },
+				endpointMetric.latency_ms.p95
+			)
+		);
+		lines.push(
+			toPrometheusMetric(
+				"triage_http_error_rate",
+				{ endpoint: endpointMetric.endpoint },
+				endpointMetric.error_rate
+			)
+		);
+		lines.push(
+			toPrometheusMetric(
+				"triage_prune_reduction_ratio_avg",
+				{ endpoint: endpointMetric.endpoint },
+				endpointMetric.prune_reduction_ratio.avg
+			)
+		);
+	}
+
+	lines.push(
+		"# HELP triage_external_prune_attempts_total Total external pruning attempts.",
+		"# TYPE triage_external_prune_attempts_total counter",
+		toPrometheusMetric(
+			"triage_external_prune_attempts_total",
+			null,
+			observabilityState.external_prune.attempted_total
+		),
+		"# HELP triage_external_prune_success_total Total successful external pruning operations.",
+		"# TYPE triage_external_prune_success_total counter",
+		toPrometheusMetric(
+			"triage_external_prune_success_total",
+			null,
+			observabilityState.external_prune.success_total
+		),
+		"# HELP triage_external_prune_local_fallback_total Total local fallback pruning operations.",
+		"# TYPE triage_external_prune_local_fallback_total counter",
+		toPrometheusMetric(
+			"triage_external_prune_local_fallback_total",
+			null,
+			observabilityState.external_prune.local_fallback_total
+		),
+		"# HELP triage_external_prune_availability Rolling availability of external pruning service (0 to 1).",
+		"# TYPE triage_external_prune_availability gauge",
+		toPrometheusMetric(
+			"triage_external_prune_availability",
+			null,
+			dashboardSnapshot.external_prune.availability
+		)
+	);
+
+	lines.push(
+		"# HELP triage_alert_state Active alert state (1=active, 0=inactive).",
+		"# TYPE triage_alert_state gauge"
+	);
+
+	for (const [alertKey, alertValue] of Object.entries(dashboardSnapshot.alerts)) {
+		lines.push(
+			toPrometheusMetric(
+				"triage_alert_state",
+				{ alert: alertKey },
+				alertValue.active ? 1 : 0
+			)
+		);
+	}
+
+	return `${lines.join("\n")}\n`;
+}
+
+function resolveRequestId(req) {
+	const rawHeaderValue = req.headers["x-request-id"];
+	const candidate = Array.isArray(rawHeaderValue) ? rawHeaderValue[0] : rawHeaderValue;
+
+	if (typeof candidate === "string") {
+		const trimmed = candidate.trim();
+
+		if (trimmed && trimmed.length <= 128) {
+			return trimmed;
+		}
+	}
+
+	return randomUUID();
 }
 
 function evaluateStageBudget(stageLatencies) {
@@ -1206,11 +1808,18 @@ async function handleRetrieveRequest(req, res) {
 		policy: retrievedFilterResult.policy
 	});
 	const limitedPrunedDocs = prunedFilterResult.docs.slice(0, pruneTargetCount);
+	recordPruneObservation({
+		endpoint: "/retrieve",
+		retrievedCount: limitedRetrievedDocs.length,
+		prunedCount: limitedPrunedDocs.length,
+		pruneMeta
+	});
 	const retrievedAverageRelevance = calculateAverageRelevance(query, limitedRetrievedDocs);
 	const prunedAverageRelevance = calculateAverageRelevance(query, limitedPrunedDocs);
 	const latencyMs = Date.now() - startedAt;
 
 	return res.json({
+		request_id: req.requestId,
 		query,
 		retrieved_count: retrievedDocs.length,
 		returned_retrieved_count: limitedRetrievedDocs.length,
@@ -1246,6 +1855,7 @@ async function handleChunkSearchRequest(req, res) {
 	const latencyMs = Date.now() - startedAt;
 
 	return res.json({
+		request_id: req.requestId,
 		query,
 		limit,
 		hit_count: hits.length,
@@ -1265,10 +1875,11 @@ async function handleChunkSearchRequest(req, res) {
 	});
 }
 
-function handleIndexStatsRequest(_req, res) {
+function handleIndexStatsRequest(req, res) {
 	const stats = hybridIndex.getStats();
 
 	return res.json({
+		request_id: req.requestId,
 		...stats,
 		base_dataset_chunks: baseDatasetRecords.length,
 		ingested_chunks: ingestedChunkRecords.length,
@@ -1320,6 +1931,7 @@ async function handleUnstructuredIngestRequest(req, res) {
 	}
 
 	return res.status(errors.length > 0 ? 207 : 201).json({
+		request_id: req.requestId,
 		ingested_item_count: summaries.length,
 		ingested_chunk_count: chunks.length,
 		total_ingested_chunks: ingestedChunkRecords.length,
@@ -1401,7 +2013,15 @@ async function handleTriageRequest(req, res) {
 		response: roundLatencyMs(responseLatencyMs)
 	};
 
+	recordPruneObservation({
+		endpoint: "/triage",
+		retrievedCount: limitedRetrievedDocs.length,
+		prunedCount: limitedPrunedDocs.length,
+		pruneMeta
+	});
+
 	return res.json({
+		request_id: req.requestId,
 		...responsePayload,
 		latency_ms: totalLatencyMs,
 		latency_target_ms: LATENCY_TARGET_MS,
@@ -1412,20 +2032,58 @@ async function handleTriageRequest(req, res) {
 	});
 }
 
-app.get("/health", (_req, res) => {
+function handleObservabilityDashboardRequest(req, res) {
+	const dashboardSnapshot = buildObservabilityDashboardSnapshot();
+
+	return res.json({
+		request_id: req.requestId,
+		...dashboardSnapshot
+	});
+}
+
+function handleObservabilityAlertsRequest(req, res) {
+	const alerts = getAlertsSnapshot();
+	const activeAlerts = Object.values(alerts)
+		.filter((alert) => alert.active)
+		.map((alert) => alert.name);
+
+	return res.json({
+		request_id: req.requestId,
+		generated_at: new Date().toISOString(),
+		active_alerts: activeAlerts,
+		alerts
+	});
+}
+
+function handlePrometheusMetricsRequest(_req, res) {
+	res.setHeader("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+	res.send(renderPrometheusMetrics());
+}
+
+function handleObservabilityDashboardHtmlRequest(_req, res) {
+	res.sendFile(path.join(__dirname, "observability", "dashboard.html"));
+}
+
+app.get("/health", (req, res) => {
 	res.json({
+		request_id: req.requestId,
 		status: "ok",
 		uptime_seconds: Math.floor(process.uptime())
 	});
 });
 
-app.get("/", (_req, res) => {
+app.get("/", (req, res) => {
 	res.json({
+		request_id: req.requestId,
 		name: "Real-Time Emergency Response Triage Assistant API",
 		status: "ok",
 		endpoints: [
 			"GET /health",
+			"GET /metrics",
 			"GET /index/stats",
+			"GET /observability/dashboard",
+			"GET /observability/alerts",
+			"GET /observability/dashboard.html",
 			"POST /retrieve",
 			"POST /search/chunks",
 			"POST /ingest/unstructured",
@@ -1438,26 +2096,38 @@ app.get("/.well-known/appspecific/com.chrome.devtools.json", (_req, res) => {
 	res.json({});
 });
 
+app.get("/metrics", handlePrometheusMetricsRequest);
 app.get("/index/stats", handleIndexStatsRequest);
+app.get("/observability/dashboard", handleObservabilityDashboardRequest);
+app.get("/observability/alerts", handleObservabilityAlertsRequest);
+app.get("/observability/dashboard.html", handleObservabilityDashboardHtmlRequest);
 app.post("/retrieve", asyncHandler(handleRetrieveRequest));
 app.post("/search/chunks", asyncHandler(handleChunkSearchRequest));
 app.post("/ingest/unstructured", asyncHandler(handleUnstructuredIngestRequest));
 app.post("/triage", asyncHandler(handleTriageRequest));
 
-app.use((_req, res) => {
-	res.status(404).json({ error: "Route not found" });
+app.use((req, res) => {
+	res.status(404).json({
+		request_id: req.requestId,
+		error: "Route not found"
+	});
 });
 
-app.use((error, _req, res, _next) => {
+app.use((error, req, res, _next) => {
 	const statusCode = Number.isInteger(error.statusCode) ? error.statusCode : 500;
 
 	if (statusCode >= 500) {
 		log("error", "Unhandled server error", {
-			message: error.message
+			message: error.message,
+			http: {
+				method: req.method,
+				path: req.originalUrl || req.path || "unknown"
+			}
 		});
 	}
 
 	res.status(statusCode).json({
+		request_id: req.requestId,
 		error: statusCode === 500 ? "Internal server error" : error.message
 	});
 });
@@ -1481,7 +2151,15 @@ async function startServer() {
 			triage_stage_budget_ms: TRIAGE_STAGE_BUDGET_MS,
 			scaledown_effective_timeout_ms: SCALEDOWN_EFFECTIVE_TIMEOUT_MS,
 			scaledown_min_candidates: SCALEDOWN_MIN_CANDIDATES,
-			scaledown_force_remote: SCALEDOWN_FORCE_REMOTE
+			scaledown_force_remote: SCALEDOWN_FORCE_REMOTE,
+			obs_latency_window_size: OBS_LATENCY_WINDOW_SIZE,
+			obs_error_rate_window_size: OBS_ERROR_RATE_WINDOW_SIZE,
+			obs_prune_ratio_window_size: OBS_PRUNE_RATIO_WINDOW_SIZE,
+			obs_external_prune_window_size: OBS_EXTERNAL_PRUNE_WINDOW_SIZE,
+			alert_p95_threshold_ms: ALERT_P95_THRESHOLD_MS,
+			alert_p95_min_samples: ALERT_P95_MIN_SAMPLES,
+			alert_prune_outage_min_attempts: ALERT_PRUNE_OUTAGE_MIN_ATTEMPTS,
+			alert_prune_outage_availability_threshold: ALERT_PRUNE_OUTAGE_AVAILABILITY_THRESHOLD
 		});
 	});
 }

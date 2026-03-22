@@ -8,6 +8,7 @@
     "benchmark:index": "node scripts/benchmark-index.js",
     "benchmark:triage": "node scripts/benchmark-triage-latency.js",
     "evaluate:noise": "node scripts/evaluate-noise-reduction.js",
+    "validate:observability": "node scripts/validate-observability.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

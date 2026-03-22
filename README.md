@@ -111,6 +111,43 @@ SLA rule enforced by benchmark:
 
 ---
 
+## 📈 Observability
+
+Backend observability is now live with:
+
+* Structured JSON logs for every request lifecycle event
+* Request correlation via `x-request-id` (accepted from client or auto-generated)
+* Prometheus-style metrics endpoint for:
+
+   * latency (rolling avg/p95 by endpoint)
+   * prune reduction ratio
+   * error rate
+   * external prune availability
+* Alert states for:
+
+   * p95 latency breach (`p95_latency_breach`)
+   * external pruning outage (`pruning_outage`)
+
+Live endpoints:
+
+* `GET /metrics`
+* `GET /observability/dashboard`
+* `GET /observability/alerts`
+* `GET /observability/dashboard.html`
+
+Run observability validation and generate submission report:
+
+```bash
+cd backend
+npm run validate:observability
+```
+
+Validation report output:
+
+* `backend/reports/observability-validation-report.md`
+
+---
+
 ## 📂 Project Structure
 
 ```

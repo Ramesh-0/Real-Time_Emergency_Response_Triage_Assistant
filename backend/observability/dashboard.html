@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Triage Observability Dashboard</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link
+		href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap"
+		rel="stylesheet"
+	/>
+	<style>
+		:root {
+			--bg-1: #091423;
+			--bg-2: #102941;
+			--panel: rgba(9, 26, 42, 0.86);
+			--panel-border: rgba(118, 191, 255, 0.3);
+			--text-main: #e7f6ff;
+			--text-dim: #9dc4e0;
+			--accent: #6ce2ff;
+			--accent-strong: #19d6ff;
+			--warn: #ffd45f;
+			--critical: #ff5e7a;
+			--ok: #69e17f;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			margin: 0;
+			font-family: "Space Grotesk", sans-serif;
+			background:
+				radial-gradient(circle at 20% -10%, #1c4a72 0%, transparent 42%),
+				radial-gradient(circle at 80% 0%, #1f355f 0%, transparent 36%),
+				linear-gradient(140deg, var(--bg-1), var(--bg-2));
+			color: var(--text-main);
+			min-height: 100vh;
+		}
+
+		main {
+			max-width: 1180px;
+			margin: 0 auto;
+			padding: 1.4rem;
+		}
+
+		header {
+			display: flex;
+			justify-content: space-between;
+			align-items: flex-start;
+			gap: 1rem;
+			padding: 1rem 1.2rem;
+			border: 1px solid var(--panel-border);
+			background: var(--panel);
+			backdrop-filter: blur(8px);
+			border-radius: 1rem;
+		}
+
+		header h1 {
+			margin: 0;
+			font-size: clamp(1.1rem, 3vw, 1.8rem);
+			letter-spacing: 0.03em;
+		}
+
+		.subtitle {
+			margin-top: 0.45rem;
+			font-size: 0.95rem;
+			color: var(--text-dim);
+		}
+
+		.meta {
+			text-align: right;
+			font-family: "IBM Plex Mono", monospace;
+			font-size: 0.82rem;
+			color: var(--text-dim);
+		}
+
+		.grid {
+			display: grid;
+			grid-template-columns: repeat(4, minmax(180px, 1fr));
+			gap: 0.85rem;
+			margin-top: 0.95rem;
+		}
+
+		.card {
+			border: 1px solid var(--panel-border);
+			border-radius: 0.95rem;
+			background: var(--panel);
+			padding: 0.9rem;
+			position: relative;
+			overflow: hidden;
+		}
+
+		.card::after {
+			content: "";
+			position: absolute;
+			top: -45px;
+			right: -45px;
+			width: 90px;
+			height: 90px;
+			border-radius: 50%;
+			background: rgba(108, 226, 255, 0.14);
+		}
+
+		.label {
+			font-size: 0.73rem;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+			color: var(--text-dim);
+		}
+
+		.value {
+			margin-top: 0.42rem;
+			font-size: 1.52rem;
+			font-weight: 700;
+		}
+
+		.value.small {
+			font-size: 1.2rem;
+		}
+
+		.alert-row {
+			margin-top: 0.95rem;
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 0.85rem;
+		}
+
+		.alert-list {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.45rem;
+			margin-top: 0.7rem;
+		}
+
+		.alert-pill {
+			font-family: "IBM Plex Mono", monospace;
+			font-size: 0.78rem;
+			padding: 0.3rem 0.55rem;
+			border-radius: 999px;
+			border: 1px solid rgba(255, 94, 122, 0.4);
+			background: rgba(255, 94, 122, 0.16);
+		}
+
+		.ok-pill {
+			border: 1px solid rgba(105, 225, 127, 0.45);
+			background: rgba(105, 225, 127, 0.17);
+			font-family: "IBM Plex Mono", monospace;
+			font-size: 0.78rem;
+			padding: 0.3rem 0.55rem;
+			border-radius: 999px;
+		}
+
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			margin-top: 0.65rem;
+			font-size: 0.88rem;
+		}
+
+		th,
+		td {
+			padding: 0.45rem;
+			text-align: left;
+			border-bottom: 1px solid rgba(157, 196, 224, 0.18);
+		}
+
+		th {
+			font-size: 0.74rem;
+			letter-spacing: 0.06em;
+			text-transform: uppercase;
+			color: var(--text-dim);
+		}
+
+		.mono {
+			font-family: "IBM Plex Mono", monospace;
+		}
+
+		.status-ok {
+			color: var(--ok);
+		}
+
+		.status-warn {
+			color: var(--warn);
+		}
+
+		.status-critical {
+			color: var(--critical);
+		}
+
+		#error-box {
+			display: none;
+			margin-top: 0.85rem;
+			padding: 0.6rem 0.75rem;
+			border-radius: 0.55rem;
+			border: 1px solid rgba(255, 94, 122, 0.5);
+			background: rgba(255, 94, 122, 0.12);
+			font-size: 0.9rem;
+		}
+
+		@media (max-width: 960px) {
+			.grid {
+				grid-template-columns: repeat(2, minmax(170px, 1fr));
+			}
+
+			.alert-row {
+				grid-template-columns: 1fr;
+			}
+		}
+
+		@media (max-width: 560px) {
+			header {
+				flex-direction: column;
+			}
+
+			.meta {
+				text-align: left;
+			}
+
+			.grid {
+				grid-template-columns: 1fr;
+			}
+		}
+	</style>
+</head>
+<body>
+	<main>
+		<header>
+			<div>
+				<h1>Triage Observability Dashboard</h1>
+				<div class="subtitle">Live latency, pruning quality, error-rate, and alert visibility.</div>
+			</div>
+			<div class="meta">
+				<div id="uptime">Uptime: --</div>
+				<div id="last-updated">Last update: --</div>
+				<div id="request-id">Request ID: --</div>
+			</div>
+		</header>
+
+		<div id="error-box"></div>
+
+		<section class="grid" aria-label="Key metrics">
+			<article class="card">
+				<div class="label">Triage P95 Latency</div>
+				<div id="triage-p95" class="value">-- ms</div>
+			</article>
+			<article class="card">
+				<div class="label">Triage Error Rate</div>
+				<div id="triage-error-rate" class="value">--%</div>
+			</article>
+			<article class="card">
+				<div class="label">Prune Reduction Avg</div>
+				<div id="prune-ratio" class="value">--%</div>
+			</article>
+			<article class="card">
+				<div class="label">External Prune Availability</div>
+				<div id="external-availability" class="value">--%</div>
+			</article>
+		</section>
+
+		<section class="alert-row" aria-label="Alerts and endpoint status">
+			<article class="card">
+				<div class="label">Active Alerts</div>
+				<div id="alert-list" class="alert-list"></div>
+			</article>
+			<article class="card">
+				<div class="label">External Prune Window</div>
+				<div id="external-window" class="value small mono">attempts=-- success=--</div>
+				<div class="subtitle" id="external-threshold">outage threshold: --</div>
+			</article>
+		</section>
+
+		<section class="card" aria-label="Endpoint metrics" style="margin-top: 0.9rem;">
+			<div class="label">Endpoint Metrics</div>
+			<table>
+				<thead>
+					<tr>
+						<th>Endpoint</th>
+						<th>Req</th>
+						<th>P95 (ms)</th>
+						<th>Error Rate</th>
+						<th>Prune Ratio Avg</th>
+					</tr>
+				</thead>
+				<tbody id="endpoint-table"></tbody>
+			</table>
+		</section>
+	</main>
+
+	<script>
+		const dashboardUrl = "/observability/dashboard";
+		const alertsUrl = "/observability/alerts";
+		const pollMs = 5000;
+
+		function toPct(value, digits = 2) {
+			if (typeof value !== "number" || Number.isNaN(value)) {
+				return "--%";
+			}
+
+			return `${(value * 100).toFixed(digits)}%`;
+		}
+
+		function setEl(id, text, className = "") {
+			const el = document.getElementById(id);
+			if (!el) {
+				return;
+			}
+
+			el.textContent = text;
+			if (className) {
+				el.className = className;
+			}
+		}
+
+		function pickEndpoint(endpoints, endpointName) {
+			if (!Array.isArray(endpoints)) {
+				return null;
+			}
+
+			return endpoints.find((item) => item && item.endpoint === endpointName) || null;
+		}
+
+		function renderAlerts(activeAlerts) {
+			const container = document.getElementById("alert-list");
+			if (!container) {
+				return;
+			}
+
+			container.innerHTML = "";
+
+			if (!Array.isArray(activeAlerts) || activeAlerts.length === 0) {
+				const pill = document.createElement("div");
+				pill.className = "ok-pill";
+				pill.textContent = "no active alerts";
+				container.appendChild(pill);
+				return;
+			}
+
+			for (const alertName of activeAlerts) {
+				const pill = document.createElement("div");
+				pill.className = "alert-pill";
+				pill.textContent = alertName;
+				container.appendChild(pill);
+			}
+		}
+
+		function renderEndpointRows(endpoints) {
+			const tableBody = document.getElementById("endpoint-table");
+			if (!tableBody) {
+				return;
+			}
+
+			tableBody.innerHTML = "";
+
+			if (!Array.isArray(endpoints) || endpoints.length === 0) {
+				const row = document.createElement("tr");
+				const cell = document.createElement("td");
+				cell.colSpan = 5;
+				cell.textContent = "No endpoint data yet.";
+				row.appendChild(cell);
+				tableBody.appendChild(row);
+				return;
+			}
+
+			for (const endpoint of endpoints) {
+				const row = document.createElement("tr");
+
+				const endpointCell = document.createElement("td");
+				endpointCell.textContent = endpoint.endpoint || "unknown";
+				endpointCell.className = "mono";
+				row.appendChild(endpointCell);
+
+				const requestCell = document.createElement("td");
+				requestCell.textContent = String(endpoint.request_count || 0);
+				row.appendChild(requestCell);
+
+				const p95Cell = document.createElement("td");
+				p95Cell.textContent = `${endpoint?.latency_ms?.p95 ?? 0}`;
+				row.appendChild(p95Cell);
+
+				const errorRateCell = document.createElement("td");
+				errorRateCell.textContent = toPct(endpoint.error_rate || 0);
+				row.appendChild(errorRateCell);
+
+				const pruneCell = document.createElement("td");
+				pruneCell.textContent = toPct(endpoint?.prune_reduction_ratio?.avg || 0);
+				row.appendChild(pruneCell);
+
+				tableBody.appendChild(row);
+			}
+		}
+
+		function applySeverityStyles(triageP95, p95Threshold, availability) {
+			const p95Class = triageP95 > p95Threshold ? "value status-critical" : "value status-ok";
+			const availabilityClass = availability <= 0.01 ? "value status-critical" : availability < 0.85 ? "value status-warn" : "value status-ok";
+
+			setEl("triage-p95", `${triageP95.toFixed(2)} ms`, p95Class);
+			setEl("external-availability", toPct(availability), availabilityClass);
+		}
+
+		function showError(message) {
+			const errorBox = document.getElementById("error-box");
+			if (!errorBox) {
+				return;
+			}
+
+			errorBox.style.display = "block";
+			errorBox.textContent = message;
+		}
+
+		function hideError() {
+			const errorBox = document.getElementById("error-box");
+			if (!errorBox) {
+				return;
+			}
+
+			errorBox.style.display = "none";
+			errorBox.textContent = "";
+		}
+
+		async function refresh() {
+			try {
+				const [dashboardRes, alertsRes] = await Promise.all([
+					fetch(dashboardUrl, { headers: { "Accept": "application/json" } }),
+					fetch(alertsUrl, { headers: { "Accept": "application/json" } })
+				]);
+
+				if (!dashboardRes.ok) {
+					throw new Error(`Dashboard endpoint returned ${dashboardRes.status}`);
+				}
+
+				if (!alertsRes.ok) {
+					throw new Error(`Alerts endpoint returned ${alertsRes.status}`);
+				}
+
+				const dashboardData = await dashboardRes.json();
+				const alertsData = await alertsRes.json();
+				hideError();
+
+				const triageEndpoint = pickEndpoint(dashboardData.endpoints, "/triage") || {
+					latency_ms: { p95: 0 },
+					error_rate: 0,
+					prune_reduction_ratio: { avg: 0 }
+				};
+
+				const p95Threshold = dashboardData?.thresholds?.p95_latency_threshold_ms || 0;
+				const triageP95 = Number(triageEndpoint?.latency_ms?.p95 || 0);
+				const availability = Number(dashboardData?.external_prune?.availability || 0);
+
+				setEl("triage-error-rate", toPct(triageEndpoint.error_rate || 0), "value");
+				setEl("prune-ratio", toPct(triageEndpoint?.prune_reduction_ratio?.avg || 0), "value");
+				applySeverityStyles(triageP95, p95Threshold, availability);
+
+				setEl(
+					"external-window",
+					`attempts=${dashboardData?.external_prune?.window_attempt_count ?? 0} success=${dashboardData?.external_prune?.window_success_count ?? 0}`,
+					"value small mono"
+				);
+				setEl(
+					"external-threshold",
+					`outage threshold: attempts >= ${dashboardData?.thresholds?.pruning_outage_min_attempts ?? 0}, availability <= ${dashboardData?.thresholds?.pruning_outage_availability_threshold ?? 0}`,
+					"subtitle"
+				);
+
+				renderAlerts(alertsData.active_alerts || dashboardData.active_alerts || []);
+				renderEndpointRows(dashboardData.endpoints || []);
+
+				setEl("uptime", `Uptime: ${dashboardData?.uptime_seconds ?? 0}s`, "mono");
+				setEl("last-updated", `Last update: ${dashboardData?.generated_at || "--"}`, "mono");
+				setEl("request-id", `Request ID: ${dashboardData?.request_id || "--"}`, "mono");
+			} catch (error) {
+				showError(`Dashboard refresh failed: ${error.message}`);
+			}
+		}
+
+		refresh();
+		setInterval(refresh, pollMs);
+	</script>
+</body>
+</html>
