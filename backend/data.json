@@ -152,5 +152,27 @@
     "diagnosis": "Administrative medication refill",
     "action": "Process refill per protocol and provide adherence/travel guidance",
     "severity": "LOW"
+  },
+  {
+    "id": "O-001",
+    "type": "orthopedic",
+    "title": "Knee and lower back strain after lifting",
+    "text": "Mechanical knee pain with lower back stiffness after heavy lifting, no neurological red flags.",
+    "keywords": ["knee", "back", "joint", "strain", "muscle", "lifting", "pain"],
+    "date": "2026-03-20",
+    "diagnosis": "Musculoskeletal knee and lower back strain",
+    "action": "Start analgesia, activity modification, and physiotherapy referral; escalate if weakness, numbness, or bowel/bladder symptoms occur",
+    "severity": "MEDIUM"
+  },
+  {
+    "id": "O-002",
+    "type": "orthopedic",
+    "title": "Chronic low back pain flare",
+    "text": "Non-traumatic low back pain flare with paraspinal tenderness and reduced range of motion.",
+    "keywords": ["back", "spine", "lumbar", "stiffness", "muscle", "pain"],
+    "date": "2026-03-05",
+    "diagnosis": "Chronic low back pain exacerbation",
+    "action": "Conservative pain management, posture advice, and outpatient orthopedic follow-up",
+    "severity": "LOW"
   }
 ]

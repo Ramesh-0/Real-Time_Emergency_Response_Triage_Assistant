@@ -326,18 +326,18 @@ test("voice triage matches text triage structure", async () => {
 	);
 });
 
-test("low-confidence symptom overlap avoids unrelated diagnosis", async () => {
+test("low-confidence symptom overlap returns related-case recommendation", async () => {
 	const payload = await postTriage(baseUrl, "joint pain and knee bleeding", requestLimit);
 
-	assert.equal(
+	assert.notEqual(
 		normalizeText(payload?.result?.diagnosis),
 		normalizeText("Needs clinician triage review"),
-		"low-confidence query should not force unrelated diagnosis"
+		"low-confidence query should return the closest related diagnosis"
 	);
 	assert.equal(
-		normalizeSeverity(payload?.result?.severity),
-		normalizeSeverity("MEDIUM"),
-		"low-confidence fallback severity should stay MEDIUM"
+		typeof payload?.result?.action === "string" && payload.result.action.trim().length > 0,
+		true,
+		"related-case fallback should include a recommended action"
 	);
 	assert.equal(
 		Array.isArray(payload?.pruned_context),
@@ -348,6 +348,26 @@ test("low-confidence symptom overlap avoids unrelated diagnosis", async () => {
 		payload.pruned_context.length > 0,
 		true,
 		"related context should contain symptom-overlap candidates"
+	);
+});
+
+test("knee and back pain maps to musculoskeletal recommendation", async () => {
+	const payload = await postTriage(baseUrl, "knee pain and back pain", requestLimit);
+
+	assert.equal(
+		normalizeText(payload?.result?.diagnosis),
+		normalizeText("Musculoskeletal knee and lower back strain"),
+		"knee/back query should resolve to orthopedic musculoskeletal diagnosis"
+	);
+	assert.equal(
+		normalizeSeverity(payload?.result?.severity),
+		normalizeSeverity("MEDIUM"),
+		"knee/back musculoskeletal case severity should be MEDIUM"
+	);
+	assert.equal(
+		normalizeText(payload?.result?.action).includes("physiotherapy"),
+		true,
+		"knee/back musculoskeletal recommendation should include physiotherapy guidance"
 	);
 });
 

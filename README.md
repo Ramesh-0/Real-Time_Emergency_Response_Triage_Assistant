@@ -1,305 +1,135 @@
-# 🏥 Real-Time Emergency Triage Assistant
+# Real-Time Emergency Response Triage Assistant
 
-AI-powered system that analyzes patient data in real-time and recommends the next best medical action using **Intelligent Context Pruning**.
+A voice-or-text-enabled triage assistant that helps emergency teams get the next best action from large, messy medical histories or disaster protocols in real time.
 
----
+## Problem Statement
 
-## 🚨 Problem Statement
+In emergency rooms and disaster zones, staff cannot read hundreds of pages of unstructured history before acting.
 
-In emergency situations, doctors must make rapid decisions using large, unstructured patient histories.
-Traditional systems are slow and include irrelevant data, increasing response time.
+This project addresses that by building a triage assistant that:
+- accepts text or voice transcript input,
+- retrieves relevant context from a large protocol/history repository,
+- removes irrelevant noise before reasoning,
+- returns diagnosis, severity, and recommended action quickly.
 
----
+## Core Constraints and How This System Handles Them
 
-## 💡 Solution
+### 1) Latency is primary (< 500 ms)
+- Uses a hybrid in-memory chunk index for fast candidate retrieval.
+- Uses intelligent pruning to reduce downstream context size before decision logic.
+- Measures stage-level timings (`retrieve`, `prune`, `decide`, `response`) on every triage call.
 
-We built a **real-time triage assistant** that:
+### 2) Noise reduction is mandatory
+- Applies recency filtering and type filtering before and after pruning.
+- Uses strict type filtering for critical queries (for example, cardiac events).
+- Prevents stale or unrelated records from leaking into final context.
 
-* Accepts patient symptoms via text/voice
-* Retrieves relevant medical history
-* Uses **Scaledown API** for intelligent context pruning
-* Generates fast, actionable recommendations
+### Required Technique: Intelligent Context Pruning
+- The system prunes non-essential retrieved context so fewer tokens are processed.
+- It can use an external pruning service when configured, with local fallback when unavailable.
 
----
+## Supporting Numbers (Latest Local Runs: 2026-03-22)
 
-## ⚙️ Architecture
+### Scale and Retrieval
+| Metric | Result |
+| --- | --- |
+| Indexed chunks benchmarked | 12,000 |
+| Required chunk goal | 10,000 (met) |
+| Search latency (p95) | 18.17 ms |
+| Search latency (avg) | 13.95 ms |
+| Query runs | 120 |
 
-Frontend (React UI)
-↓
-Backend API (Node.js)
-↓
-Context Retrieval (JSON dataset)
-↓
-Scaledown API (Pruning Layer)
-↓
-Decision Engine (LLM / Rule-based)
-↓
-Response (Diagnosis + Action + Severity)
+### End-to-End Triage Latency
+| Metric | Result |
+| --- | --- |
+| SLA target | p95 < 500 ms |
+| Warm traffic p95 | 198.72 ms (SLA met) |
+| Warm traffic load | 240 requests, concurrency 6 |
+| Warm traffic failures | 0 |
+| Cold first triage (client latency) | 265.88 ms |
 
----
+Warm stage p95:
+- retrieve: 0.27 ms
+- prune: 185.96 ms
+- decide: 0.10 ms
+- response: 0.02 ms
 
-## 🧠 Key Feature: Intelligent Context Pruning
+### Noise Reduction and Triage Quality
+| Metric | Result |
+| --- | --- |
+| Noise evaluation checks passed | 6/6 |
+| Unrelated leakage count | 0 |
+| Stale leakage count | 0 |
+| Noisy-case suppression | 100% (15/15) |
+| Avg context reduction ratio (all cases) | 0.3142 |
+| Avg context reduction ratio (noisy cases) | 0.3528 |
+| Diagnosis accuracy | 100% (60/60) |
+| Severity correctness | 100% (60/60) |
+| Leakage-free rate | 100% (60/60) |
 
-We use **Scaledown API** to:
+## Architecture (Simple View)
 
-* Remove irrelevant patient history (e.g., old dental records)
-* Keep only critical, recent, condition-specific data
-* Reduce token size significantly
+Input (text or voice transcript)
+-> Retrieval from indexed protocol/history chunks
+-> Intelligent context pruning (noise removal)
+-> Triage decision (diagnosis + severity + action)
+-> Response
 
----
+## API Endpoints
 
-## ⚡ Performance Improvements
+- `POST /triage` - text triage
+- `POST /triage/voice` - voice transcript triage
+- `POST /retrieve` - retrieve candidate context
+- `POST /search/chunks` - direct chunk search
+- `POST /ingest/unstructured` - ingest PDF/DOCX/TXT/MD/RTF content
+- `GET /health` - service health
+- `GET /metrics` - observability metrics
 
-| Metric      | Before Pruning | After Pruning |
-| ----------- | -------------- | ------------- |
-| Tokens Sent | ~1200          | ~300          |
-| Latency     | ~2.0s          | ~0.4s         |
-| Cost        | High           | Reduced       |
-
----
-
-## 🖥️ Frontend Features
-
-* 📝 Text input for symptoms
-* 🎤 Voice input via browser streaming STT (Web Speech API)
-* 📂 JSON upload (optional)
-* 🚀 Analyze button
-* ⏳ Loading indicator
-* 🚨 Severity badge (HIGH / MEDIUM / LOW)
-* 📌 Explanation ("Why this decision")
-
----
-
-## 🔧 Backend Features
-
-* Patient data stored in JSON format
-* Keyword + metadata-based retrieval
-* Scaledown API integration
-* Rule-based decision engine
-* Dual triage ingress:
-   * `POST /triage` for stable text requests
-   * `POST /triage/voice` for transcript requests from streaming STT
-* Fast API response (<500ms target)
-
-Voice endpoint contract:
+Example text request:
 
 ```json
 {
-   "transcript": "severe chest pain with sweating and left arm pressure",
-   "limit": 8
+  "query": "severe chest pain with sweating and left arm pressure",
+  "limit": 5
 }
 ```
 
-`POST /triage/voice` returns the same triage response structure as `POST /triage`.
+Example voice request:
 
----
+```json
+{
+  "transcript": "severe chest pain with sweating and left arm pressure",
+  "limit": 8
+}
+```
 
-## ⏱️ Latency SLA Benchmark
-
-Benchmark script now measures triage latency in two views:
-
-* **Cold start (separate):** process startup + first triage request
-* **Warm sustained traffic:** warm-up phase followed by concurrent load and p95 checks
-
-Per-triage stage timings and budgets are included in the API response and benchmark report:
-
-* `retrieve`
-* `prune`
-* `decide`
-* `response`
-
-Run benchmark:
+## Quick Start
 
 ```bash
-cd backend
-npm run benchmark:triage
+npm --prefix backend install
+npm --prefix frontend install
+npm --prefix backend start
+npm --prefix frontend run dev
 ```
 
-Report output:
-
-* `backend/reports/triage-latency-report.md`
-
-SLA rule enforced by benchmark:
-
-* Warm traffic **p95 < 500 ms** (non-zero exit code on failure)
-
----
-
-## 📈 Observability
-
-Backend observability is now live with:
-
-* Structured JSON logs for every request lifecycle event
-* Request correlation via `x-request-id` (accepted from client or auto-generated)
-* Prometheus-style metrics endpoint for:
-
-   * latency (rolling avg/p95 by endpoint)
-   * prune reduction ratio
-   * error rate
-   * external prune availability
-* Alert states for:
-
-   * p95 latency breach (`p95_latency_breach`)
-   * external pruning outage (`pruning_outage`)
-
-Live endpoints:
-
-* `GET /metrics`
-* `GET /observability/dashboard`
-* `GET /observability/alerts`
-* `GET /observability/dashboard.html`
-
-Run observability validation and generate submission report:
+## Reproduce the Numbers
 
 ```bash
-cd backend
-npm run validate:observability
+npm --prefix backend run benchmark:index
+npm --prefix backend run benchmark:triage
+npm --prefix backend run evaluate:noise
+npm --prefix backend run evaluate:triage
+npm --prefix backend run validate:observability
+npm --prefix backend test
 ```
 
-Validation report output:
+Report files:
+- `backend/reports/triage-latency-report.md`
+- `backend/reports/noise-reduction-evaluation.md`
+- `backend/reports/triage-evaluation-report.md`
+- `backend/reports/triage-evaluation-results.json`
+- `backend/reports/observability-validation-report.md`
 
-* `backend/reports/observability-validation-report.md`
+## Note
 
----
-
-## 🧪 Evaluation Harness
-
-Reproducible triage evaluation harness now includes:
-
-* Versioned labeled test set: `backend/evaluation/labeled-triage-prompts.json`
-* 60 prompts across cardiac, fever, dental, and mixed-noise scenarios
-* Tracked metrics:
-
-   * diagnosis accuracy
-   * severity correctness
-   * noise suppression and leakage-free rate
-
-Run evaluation harness:
-
-```bash
-cd backend
-npm run evaluate:triage
-```
-
-Outputs:
-
-* `backend/reports/triage-evaluation-report.md`
-* `backend/reports/triage-evaluation-results.json`
-
----
-
-## ✅ Critical Regression Tests
-
-Critical-case regression coverage includes:
-
-* cardiac emergency prompt
-* fever prompt
-* dental abscess prompt
-* mixed-noise prompt (must still return correct diagnosis/severity and keep leakage at zero)
-
-Run regression tests:
-
-```bash
-cd backend
-npm test
-```
-
----
-
-## 📂 Project Structure
-
-```
-project/
-│
-├── backend/
-│   ├── server.js
-│   ├── data.json
-│
-├── frontend/
-│   ├── src/
-│   ├── components/
-│
-└── README.md
-```
-
----
-
-## 🚀 How to Run
-
-### 1. Clone Repository
-
-```bash
-git clone <repo-link>
-cd project
-```
-
-### 2. Run Backend
-
-```bash
-cd backend
-npm install
-node server.js
-```
-
-### 3. Run Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
----
-
-## 🎯 Demo Flow
-
-1. Enter symptoms (e.g., chest pain, sweating)
-2. System retrieves relevant patient data
-3. Scaledown API prunes unnecessary context
-4. Output:
-
-   * Diagnosis
-   * Recommended action
-   * Severity level
-
----
-
-## 🧪 Dataset
-
-Simulated dataset including:
-
-* Cardiology records
-* General medical history
-* Irrelevant data (for pruning demonstration)
-
----
-
-## 🌍 Real-World Impact
-
-* Faster emergency response
-* Reduced cognitive load for doctors
-* Works in low-resource environments
-* Scalable for hospitals and disaster zones
-
----
-
-## 👥 Team
-
-* Ramesh – Backend + AI
-* Sarthak – Frontend
-* Aditi – Data + Metrics
-
----
-
-## 🔮 Future Improvements
-
-* Real hospital database integration
-* Advanced ML diagnosis
-* Multi-patient triage
-* Offline deployment
-
----
-
-## 🏁 Conclusion
-
-This project demonstrates how intelligent context pruning can significantly improve speed and efficiency in critical healthcare scenarios.
+Performance numbers can vary by machine, but this project is designed to keep warm p95 triage latency under the 500 ms target while suppressing irrelevant clinical noise.

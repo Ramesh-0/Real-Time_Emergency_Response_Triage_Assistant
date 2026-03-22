@@ -34,8 +34,12 @@ function OutputSection({ result }) {
       </div>
 
       <div className="output-grid">
-        <DiagnosisCard diagnosis={result.diagnosis || "No diagnosis available"} />
-        <ActionCard action={result.action || "No action recommendation available"} />
+        {!isPatientInsights ? (
+          <>
+            <DiagnosisCard diagnosis={result.diagnosis || "No diagnosis available"} />
+            <ActionCard action={result.action || "No action recommendation available"} />
+          </>
+        ) : null}
         {isPatientInsights ? <PatientHistoryCard patient={result.patientHistory} /> : null}
         {shouldShowRelatedDiagnoses ? <RelatedDiagnosesCard items={relatedDiagnoses} /> : null}
         <ExplanationList items={Array.isArray(result.explanation) ? result.explanation : []} />

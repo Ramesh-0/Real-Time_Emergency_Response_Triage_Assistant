@@ -273,6 +273,15 @@ const KEYWORD_TO_TYPE = {
 	abscess: "dental",
 	wisdom: "dental",
 	molar: "dental",
+	knee: "orthopedic",
+	back: "orthopedic",
+	joint: "orthopedic",
+	spine: "orthopedic",
+	lumbar: "orthopedic",
+	muscle: "orthopedic",
+	orthopedic: "orthopedic",
+	bone: "orthopedic",
+	strain: "orthopedic",
 	fever: "general",
 	cough: "general",
 	headache: "general",
@@ -1057,6 +1066,56 @@ function isConfidentDecisionMatch(queryTokens, signals) {
 		signals.matchRatio >= DECISION_MIN_MATCH_RATIO &&
 		signals.informativeMatchedTokenCount >= 1
 	);
+}
+
+function hasDecisionFields(doc) {
+	return Boolean(doc && doc.diagnosis && doc.action && doc.severity);
+}
+
+function computeRelatedCaseRankScore(candidate, criticalQuery) {
+	const informativeMatchBoost = candidate.informativeMatchedTokenCount * 2;
+	const coverageBoost = candidate.matchedTokenCount;
+	const highSeverityPenalty = !criticalQuery && String(candidate.doc?.severity || "").toUpperCase() === "HIGH"
+		? 2
+		: 0;
+
+	return candidate.totalScore + informativeMatchBoost + coverageBoost - highSeverityPenalty;
+}
+
+function selectRelatedCaseCandidate(candidates, queryTokens) {
+	if (!Array.isArray(candidates) || candidates.length === 0) {
+		return null;
+	}
+
+	const criticalQuery = isCriticalQuery(queryTokens);
+	const actionableCandidates = candidates.filter((candidate) => {
+		return hasDecisionFields(candidate.doc);
+	});
+
+	if (actionableCandidates.length === 0) {
+		return null;
+	}
+
+	const signalCandidates = actionableCandidates.filter((candidate) => {
+		return candidate.totalScore > 0 || candidate.matchedTokenCount > 0;
+	});
+	const candidatePool = signalCandidates.length > 0 ? signalCandidates : actionableCandidates;
+
+	return candidatePool
+		.slice()
+		.sort((a, b) => {
+			const relatedRankDelta = computeRelatedCaseRankScore(b, criticalQuery) - computeRelatedCaseRankScore(a, criticalQuery);
+
+			if (relatedRankDelta !== 0) {
+				return relatedRankDelta;
+			}
+
+			if (b.totalScore !== a.totalScore) {
+				return b.totalScore - a.totalScore;
+			}
+
+			return toEpoch(b.doc.date) - toEpoch(a.doc.date);
+		})[0] || null;
 }
 
 function rankDocsByRelevance(query, docs) {
@@ -2287,10 +2346,7 @@ function buildDecision(query, prunedDocs) {
 		const doc = candidate.doc;
 
 		return (
-			doc &&
-			doc.diagnosis &&
-			doc.action &&
-			doc.severity &&
+			hasDecisionFields(doc) &&
 			isConfidentDecisionMatch(queryTokens, candidate)
 		);
 	});
@@ -2303,7 +2359,17 @@ function buildDecision(query, prunedDocs) {
 		};
 	}
 
-	const fallbackCase = rankDocsByRelevance(query, dataset)
+	const relatedCase = selectRelatedCaseCandidate(scoredCandidates, queryTokens);
+
+	if (relatedCase) {
+		return {
+			diagnosis: relatedCase.doc.diagnosis,
+			action: relatedCase.doc.action,
+			severity: relatedCase.doc.severity
+		};
+	}
+
+	const fallbackScoredCandidates = rankDocsByRelevance(query, dataset)
 		.map((doc) => {
 			const signals = buildDocMatchSignals(queryTokens, doc);
 
@@ -2311,18 +2377,8 @@ function buildDecision(query, prunedDocs) {
 				doc,
 				...signals
 			};
-		})
-		.find((candidate) => {
-			const doc = candidate.doc;
-
-			return (
-				doc &&
-				doc.diagnosis &&
-				doc.action &&
-				doc.severity &&
-				isConfidentDecisionMatch(queryTokens, candidate)
-			);
-	});
+		});
+	const fallbackCase = selectRelatedCaseCandidate(fallbackScoredCandidates, queryTokens);
 
 	if (fallbackCase) {
 		return {
