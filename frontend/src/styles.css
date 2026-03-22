@@ -526,16 +526,6 @@ input {
   margin-top: 8px;
 }
 
-.recent-cases-card ul {
-  margin: 0;
-  padding-left: 18px;
-  color: var(--subtext);
-}
-
-.recent-cases-card li + li {
-  margin-top: 6px;
-}
-
 .recent-cases-list {
   list-style: none;
   margin: 0;
